@@ -17,11 +17,16 @@ pub fn main() !void {
     const routine = vm.Routine{ .user = &instructions };
     var routines = std.StringHashMap(vm.Routine).init(allocator);
     try routines.put("PROGRAM", routine);
-    var v = vm.VM.init(&routines);
-    v.run();
-    for (v.stack[0..v.stack_top]) |i| {
-        switch (i) {
-            .n => |n| print("{}\n", .{n}),
+    var v = try vm.VM.init(&routines);
+    v.run() catch |err| {
+        print("Runtime Error: ", .{});
+        switch (err) {
+            error.StackFull => print("Stack overflow", .{}),
+            error.StackEmpty => print("Stack underflow", .{}),
+            error.FrameFull => print("Frame overflow", .{}),
+            error.FrameEmpty => print("Frame underflow", .{}),
         }
-    }
+        print("\n", .{});
+        v.printStacktrace();
+    };
 }
