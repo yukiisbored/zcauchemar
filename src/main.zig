@@ -12,6 +12,9 @@ pub fn main() !void {
         vm.Instruction{ .psh = &vm.Value{ .n = 16 } },
         vm.Instruction{ .psh = &vm.Value{ .n = 32 } },
         .add,
+        vm.Instruction{ .cal = "PRINT" },
+        vm.Instruction{ .psh = &vm.Value{ .b = true } },
+        vm.Instruction{ .cal = "PRINT" },
         .ret,
     };
     const routine = vm.Routine{ .user = &instructions };
@@ -25,6 +28,8 @@ pub fn main() !void {
             error.FrameFull => "Frame full",
             error.FrameEmpty => "Frame underflow",
             error.InvalidType => "Invalid type",
+            error.UnknownRoutine => "Unknown routine",
+            else => |e| return e,
         };
         print("Runtime Error: {s}\n", .{msg});
         v.printStacktrace();
