@@ -15,12 +15,13 @@ pub fn main() !void {
         .ret,
     };
     const routine = vm.Routine{ .user = &instructions };
-    var frame = vm.Frame{ .routine = &routine, .ip = 0 };
-    var ip = std.ArrayList(*vm.Frame).init(allocator);
-    try ip.append(&frame);
-    var routines = std.StringHashMap(*const vm.Routine).init(allocator);
-    try routines.put("PROGRAM", &routine);
-    var stack = std.ArrayList(vm.Value).init(allocator);
-    var v = vm.VM{ .ip = &ip, .stack = &stack, .routines = &routines };
-    try v.run();
+    var routines = std.StringHashMap(vm.Routine).init(allocator);
+    try routines.put("PROGRAM", routine);
+    var v = vm.VM.init(&routines);
+    v.run();
+    for (v.stack[0..v.stack_top]) |i| {
+        switch (i) {
+            .n => |n| print("{}\n", .{n}),
+        }
+    }
 }

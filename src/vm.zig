@@ -23,9 +23,16 @@ pub const Frame = struct {
 };
 
 pub const VM = struct {
-    ip: *std.ArrayList(*Frame),
-    stack: *std.ArrayList(Value),
-    routines: *std.StringHashMap(*const Routine),
+    ip: [FRAMES_MAX]Frame,
+    ip_top: usize,
+
+    stack: [STACK_MAX]Value,
+    stack_top: usize,
+
+    routines: *std.StringHashMap(Routine),
+
+    const FRAMES_MAX = 64;
+    const STACK_MAX = FRAMES_MAX * 256;
 
     const BinaryOp = enum {
         add,
@@ -34,39 +41,84 @@ pub const VM = struct {
         mul,
     };
 
-    fn binary_op(self: *VM, op: BinaryOp) !void {
-        const b = switch (self.stack.pop()) {
+    pub fn init(routines: *std.StringHashMap(Routine)) VM {
+        var res = VM{
+            .ip = undefined,
+            .ip_top = 0,
+
+            .stack = undefined,
+            .stack_top = 0,
+
+            .routines = routines,
+        };
+
+        const program = res.routines.getPtr("PROGRAM") orelse unreachable;
+        res.pushFrame(Frame{ .routine = program, .ip = 0 });
+
+        return res;
+    }
+
+    fn pushFrame(self: *VM, frame: Frame) void {
+        self.ip[self.ip_top] = frame;
+        self.ip_top += 1;
+    }
+
+    fn peekFrame(self: *VM) *Frame {
+        return &self.ip[self.ip_top - 1];
+    }
+
+    fn pullFrame(self: *VM) void {
+        self.ip_top -= 1;
+    }
+
+    fn pushStack(self: *VM, value: Value) void {
+        self.stack[self.stack_top] = value;
+        self.stack_top += 1;
+    }
+
+    fn peekStack(self: *VM) *Value {
+        return &self.stack[self.stack_top - 1];
+    }
+
+    fn pullStack(self: *VM) void {
+        self.stack_top -= 1;
+    }
+
+    fn binary_op(self: *VM, op: BinaryOp) void {
+        const b = switch (self.peekStack().*) {
             .n => |n| n,
         };
-        const a = switch (self.stack.pop()) {
+        self.pullStack();
+        const a = switch (self.peekStack().*) {
             .n => |n| n,
         };
-        const res = Value{ .n = switch (op) {
+        const res = switch (op) {
             .add => a + b,
             .sub => a - b,
             .div => @divTrunc(a, b),
             .mul => a * b,
-        } };
-        try self.stack.append(res);
+        };
+        self.peekStack().n = res;
     }
 
-    pub fn run(self: *VM) !void {
+    pub fn run(self: *VM) void {
         while (true) {
-            var frame = self.ip.items[0].*;
-            self.ip.items[0].ip += 1;
+            var frame = self.peekFrame();
+            var ip = frame.ip;
+            frame.ip += 1;
 
             switch (frame.routine.*) {
                 .user => |r| {
-                    var i = r[frame.ip];
+                    var i = r[ip];
                     switch (i) {
-                        .psh => |p| try self.stack.append(p.*),
-                        .add => try self.binary_op(.add),
-                        .sub => try self.binary_op(.sub),
-                        .div => try self.binary_op(.div),
-                        .mul => try self.binary_op(.mul),
+                        .psh => |p| self.pushStack(p.*),
+                        .add => self.binary_op(.add),
+                        .sub => self.binary_op(.sub),
+                        .div => self.binary_op(.div),
+                        .mul => self.binary_op(.mul),
                         .ret => {
-                            _ = self.ip.pop();
-                            if (self.ip.items.len == 0) {
+                            self.pullFrame();
+                            if (self.ip_top == 0) {
                                 break;
                             }
                         },
