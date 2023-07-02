@@ -5,6 +5,7 @@ const DEBUG = builtin.mode == std.builtin.Mode.Debug;
 
 pub const Value = union(enum) {
     n: i32,
+    b: bool,
 };
 
 pub const Instruction = union(enum) {
@@ -30,6 +31,7 @@ pub const VMRuntimeError = error{
     StackEmpty,
     FrameFull,
     FrameEmpty,
+    InvalidType,
 };
 
 pub const VMInitError = error{
@@ -119,10 +121,12 @@ pub const VM = struct {
     fn binary_op(self: *VM, op: BinaryOp) VMRuntimeError!void {
         const b = switch ((try self.peekStack()).*) {
             .n => |n| n,
+            else => return error.InvalidType,
         };
         try self.pullStack();
         const a = switch ((try self.peekStack()).*) {
             .n => |n| n,
+            else => return error.InvalidType,
         };
         const res = switch (op) {
             .add => a + b,
@@ -170,9 +174,14 @@ pub const VM = struct {
     pub fn printStacktrace(self: *VM) void {
         const print = std.debug.print;
         print("STACK: ", .{});
-        for (self.stack[0..self.stack_top]) |i| {
+        for (self.stack[0..self.stack_top], 0..) |i, idx| {
             switch (i) {
-                .n => |n| print("[{}] ", .{n}),
+                .n => |n| print("[{}]", .{n}),
+                .b => |b| if (b) print("[TRUE]", .{}) else print("[FALSE]", .{}),
+            }
+
+            if (idx != self.stack_top - 1) {
+                print(" ", .{});
             }
         }
         print("\nFRAMES: ", .{});
@@ -182,10 +191,9 @@ pub const VM = struct {
             }
             switch (i.routine.*) {
                 .user => |r| {
-                    print(">>> {}\n", .{r[i.ip]});
+                    print(">>> [{d: >5}] {}\n", .{ i.ip, r[i.ip] });
                 },
             }
         }
-        print("\n", .{});
     }
 };

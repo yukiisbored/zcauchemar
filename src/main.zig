@@ -19,14 +19,14 @@ pub fn main() !void {
     try routines.put("PROGRAM", routine);
     var v = try vm.VM.init(&routines);
     v.run() catch |err| {
-        print("Runtime Error: ", .{});
-        switch (err) {
-            error.StackFull => print("Stack overflow", .{}),
-            error.StackEmpty => print("Stack underflow", .{}),
-            error.FrameFull => print("Frame overflow", .{}),
-            error.FrameEmpty => print("Frame underflow", .{}),
-        }
-        print("\n", .{});
+        const msg = switch (err) {
+            error.StackFull => "Stack overflow",
+            error.StackEmpty => "Stack underflow",
+            error.FrameFull => "Frame full",
+            error.FrameEmpty => "Frame underflow",
+            error.InvalidType => "Invalid type",
+        };
+        print("Runtime Error: {s}\n", .{msg});
         v.printStacktrace();
     };
 }
