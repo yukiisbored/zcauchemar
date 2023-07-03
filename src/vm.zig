@@ -74,7 +74,7 @@ pub const Instruction = union(enum) {
 
 pub const Routine = union(enum) {
     user: []const Instruction,
-    native: *const fn (self: *Self) RuntimeError!void,
+    native: *const fn (self: *Self) anyerror!void,
 };
 
 pub const Frame = struct {
@@ -102,8 +102,8 @@ pub fn init(routines: *std.StringHashMap(Routine)) !Self {
 
 fn nativePrint(self: *Self) !void {
     const stdout = std.io.getStdOut().writer();
-    (try self.peekStack()).print(stdout) catch unreachable;
-    stdout.writeAll("\n") catch unreachable;
+    try (try self.peekStack()).print(stdout);
+    try stdout.writeAll("\n");
     try self.pullStack();
 }
 
@@ -111,7 +111,7 @@ fn injectNativeRoutines(self: *Self) !void {
     try self.routines.put("PRINT", Routine{ .native = nativePrint });
 }
 
-fn pushFrame(self: *Self, frame: Frame) RuntimeError!void {
+inline fn pushFrame(self: *Self, frame: Frame) RuntimeError!void {
     if (self.ip_top > FRAMES_MAX) {
         return error.FrameFull;
     }
@@ -119,21 +119,21 @@ fn pushFrame(self: *Self, frame: Frame) RuntimeError!void {
     self.ip_top += 1;
 }
 
-fn peekFrame(self: *Self) RuntimeError!*Frame {
+inline fn peekFrame(self: *Self) RuntimeError!*Frame {
     if (self.ip_top == 0) {
         return RuntimeError.FrameEmpty;
     }
     return &self.ip[self.ip_top - 1];
 }
 
-fn pullFrame(self: *Self) RuntimeError!void {
+inline fn pullFrame(self: *Self) RuntimeError!void {
     if (self.ip_top == 0) {
         return RuntimeError.FrameEmpty;
     }
     self.ip_top -= 1;
 }
 
-fn pushStack(self: *Self, value: Value) RuntimeError!void {
+inline fn pushStack(self: *Self, value: Value) RuntimeError!void {
     if (self.stack_top > STACK_MAX) {
         return error.StackFull;
     }
@@ -141,14 +141,14 @@ fn pushStack(self: *Self, value: Value) RuntimeError!void {
     self.stack_top += 1;
 }
 
-fn peekStack(self: *Self) RuntimeError!*Value {
+inline fn peekStack(self: *Self) RuntimeError!*Value {
     if (self.stack_top == 0) {
         return error.StackEmpty;
     }
     return &self.stack[self.stack_top - 1];
 }
 
-fn pullStack(self: *Self) RuntimeError!void {
+inline fn pullStack(self: *Self) RuntimeError!void {
     if (self.stack_top == 0) {
         return error.StackEmpty;
     }
@@ -162,7 +162,7 @@ const BinaryOp = enum {
     mul,
 };
 
-fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
+inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
     const b = switch ((try self.peekStack()).*) {
         .n => |n| n,
         else => return error.InvalidType,
