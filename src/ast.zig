@@ -13,9 +13,46 @@ pub const AST = union(enum) {
     div,
     mul,
 
-    pub const If = struct { if_true: []const AST, if_false: []const AST };
+    pub const If = struct {
+        if_true: []const AST,
+        if_false: []const AST,
+    };
 
-    pub fn compile(
+    pub const Program = struct {
+        allocator: std.mem.Allocator,
+        routines: std.ArrayList(std.ArrayList(VM.Instruction)),
+
+        pub const Routine = struct {
+            name: []const u8,
+            ast: []const AST,
+        };
+
+        pub fn init(allocator: std.mem.Allocator, vm: *VM, routines: []const Routine) !Program {
+            var res = Program{
+                .allocator = allocator,
+                .routines = std.ArrayList(std.ArrayList(VM.Instruction)).init(allocator),
+            };
+
+            for (routines) |r| {
+                var i = std.ArrayList(VM.Instruction).init(allocator);
+                try compile(&i, r.ast);
+                try i.append(.ret);
+                try vm.addRoutine(r.name, i.items);
+                try res.routines.append(i);
+            }
+
+            return res;
+        }
+
+        pub fn deinit(self: *Program) void {
+            for (self.routines.items) |ir| {
+                ir.deinit();
+            }
+            self.routines.deinit();
+        }
+    };
+
+    fn compile(
         instructions: *std.ArrayList(VM.Instruction),
         routine: []const AST,
     ) !void {

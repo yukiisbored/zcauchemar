@@ -9,7 +9,7 @@ ip_top: usize,
 stack: [STACK_MAX]Value,
 stack_top: usize,
 
-routines: *std.StringHashMap(Routine),
+routines: std.StringHashMap(Routine),
 
 const DEBUG = builtin.mode == std.builtin.Mode.Debug;
 
@@ -23,9 +23,6 @@ pub const RuntimeError = error{
     FrameEmpty,
     InvalidType,
     UnknownRoutine,
-};
-
-pub const InitError = error{
     MissingEntrypoint,
 };
 
@@ -72,17 +69,17 @@ pub const Instruction = union(enum) {
     }
 };
 
-pub const Routine = union(enum) {
+const Routine = union(enum) {
     user: []const Instruction,
     native: *const fn (self: *Self) anyerror!void,
 };
 
-pub const Frame = struct {
+const Frame = struct {
     routine: *const Routine,
     ip: usize,
 };
 
-pub fn init(routines: *std.StringHashMap(Routine)) !Self {
+pub fn init(allocator: std.mem.Allocator) !Self {
     var res = Self{
         .ip = undefined,
         .ip_top = 0,
@@ -90,14 +87,20 @@ pub fn init(routines: *std.StringHashMap(Routine)) !Self {
         .stack = undefined,
         .stack_top = 0,
 
-        .routines = routines,
+        .routines = std.StringHashMap(Routine).init(allocator),
     };
 
     try res.injectNativeRoutines();
-    const program = res.routines.getPtr("PROGRAM") orelse return error.MissingEntrypoint;
-    res.pushFrame(Frame{ .routine = program, .ip = 0 }) catch unreachable;
 
     return res;
+}
+
+pub fn deinit(self: *Self) void {
+    self.routines.deinit();
+}
+
+pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instruction) !void {
+    try self.routines.put(name, Routine{ .user = instructions });
 }
 
 fn nativePrint(self: *Self) !void {
@@ -182,6 +185,9 @@ inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
 }
 
 pub fn run(self: *Self) !void {
+    const program = self.routines.getPtr("PROGRAM") orelse return error.MissingEntrypoint;
+    self.pushFrame(Frame{ .routine = program, .ip = 0 }) catch unreachable;
+
     while (true) {
         if (DEBUG) {
             self.printStacktrace();

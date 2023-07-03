@@ -5,42 +5,45 @@ const VM = @import("./VM.zig");
 const AST = @import("./ast.zig").AST;
 
 pub fn main() !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer {
+        const status = gpa.deinit();
+        if (status == .leak) @panic("Memory leak detected");
+    }
 
-    const r = [_]AST{
-        AST{ .b = true },
-        AST{
-            .@"if" = AST.If{
-                .if_true = &[_]AST{
-                    AST{
-                        .@"while" = &[_]AST{
-                            AST{ .n = 1 },
+    var vm = try VM.init(allocator);
+    defer vm.deinit();
+
+    const routines = [_]AST.Program.Routine{
+        AST.Program.Routine{
+            .name = "PROGRAM",
+            .ast = &[_]AST{
+                AST{ .b = false },
+                AST{
+                    .@"if" = AST.If{
+                        .if_true = &[_]AST{
+                            AST{
+                                .@"while" = &[_]AST{
+                                    AST{ .n = 1 },
+                                    AST{ .id = "PRINT" },
+                                    AST{ .b = true },
+                                },
+                            },
+                        },
+                        .if_false = &[_]AST{
+                            AST{ .n = 0 },
                             AST{ .id = "PRINT" },
-                            AST{ .b = true },
                         },
                     },
-                },
-                .if_false = &[_]AST{
-                    AST{ .n = 0 },
-                    AST{ .id = "PRINT" },
                 },
             },
         },
     };
 
-    var instructions = std.ArrayList(VM.Instruction).init(allocator);
-    defer instructions.deinit();
+    var program = try AST.Program.init(allocator, &vm, &routines);
+    defer program.deinit();
 
-    try AST.compile(&instructions, &r);
-    try instructions.append(.ret);
-
-    const routine = VM.Routine{ .user = instructions.items };
-
-    var routines = std.StringHashMap(VM.Routine).init(allocator);
-    try routines.put("PROGRAM", routine);
-    var vm = try VM.init(&routines);
     vm.run() catch |err| {
         const msg = switch (err) {
             error.StackFull => "Stack overflow",
