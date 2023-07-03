@@ -2,29 +2,29 @@ const std = @import("std");
 const print = std.debug.print;
 
 const VM = @import("./VM.zig");
-const ast = @import("./ast.zig");
+const AST = @import("./ast.zig").AST;
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    const r = [_]ast.AST{
-        ast.AST{ .b = true },
-        ast.AST{
-            .@"if" = ast.AST.If{
-                .if_true = &[_]ast.AST{
-                    ast.AST{
-                        .@"while" = &[_]ast.AST{
-                            ast.AST{ .n = 1 },
-                            ast.AST{ .id = "PRINT" },
-                            ast.AST{ .b = false },
+    const r = [_]AST{
+        AST{ .b = true },
+        AST{
+            .@"if" = AST.If{
+                .if_true = &[_]AST{
+                    AST{
+                        .@"while" = &[_]AST{
+                            AST{ .n = 1 },
+                            AST{ .id = "PRINT" },
+                            AST{ .b = true },
                         },
                     },
                 },
-                .if_false = &[_]ast.AST{
-                    ast.AST{ .n = 0 },
-                    ast.AST{ .id = "PRINT" },
+                .if_false = &[_]AST{
+                    AST{ .n = 0 },
+                    AST{ .id = "PRINT" },
                 },
             },
         },
@@ -33,7 +33,7 @@ pub fn main() !void {
     var instructions = std.ArrayList(VM.Instruction).init(allocator);
     defer instructions.deinit();
 
-    try ast.AST.compile(&instructions, &r);
+    try AST.compile(&instructions, &r);
     try instructions.append(.ret);
 
     const routine = VM.Routine{ .user = instructions.items };
