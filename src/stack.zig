@@ -39,5 +39,11 @@ pub fn Stack(
             }
             self.count -= 1;
         }
+
+        pub inline fn pop(self: *Self) StackError!T {
+            const res = (try self.peek()).*;
+            try self.drop();
+            return res;
+        }
     };
 }

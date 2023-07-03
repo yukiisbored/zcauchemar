@@ -95,9 +95,8 @@ pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instructi
 
 fn nativePrint(self: *Self) !void {
     const stdout = std.io.getStdOut().writer();
-    try (try self.stack.peek()).print(stdout);
+    try (try self.stack.pop()).print(stdout);
     try stdout.writeAll("\n");
-    try self.stack.drop();
 }
 
 fn injectNativeRoutines(self: *Self) !void {
@@ -112,12 +111,12 @@ const BinaryOp = enum {
 };
 
 inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
-    const b = switch ((try self.stack.peek()).*) {
+    const b = switch (try self.stack.pop()) {
         .n => |n| n,
         else => return error.InvalidType,
     };
-    try self.stack.drop();
-    const a = switch ((try self.stack.peek()).*) {
+    const t = try self.stack.peek();
+    const a = switch (t.*) {
         .n => |n| n,
         else => return error.InvalidType,
     };
@@ -127,7 +126,7 @@ inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
         .div => @divTrunc(a, b),
         .mul => a * b,
     };
-    (try self.stack.peek()).n = res;
+    t.n = res;
 }
 
 pub fn run(self: *Self) !void {
@@ -162,13 +161,12 @@ pub fn run(self: *Self) !void {
                     },
                     .jmp => |n| frame.ip = n,
                     .jif => |n| {
-                        switch ((try self.stack.peek()).*) {
+                        switch (try self.stack.pop()) {
                             .b => |b| if (!b) {
                                 frame.ip = n;
                             },
                             else => return error.InvalidType,
                         }
-                        try self.stack.drop();
                     },
                     .add => try self.binary_op(.add),
                     .sub => try self.binary_op(.sub),
