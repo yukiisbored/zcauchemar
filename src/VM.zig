@@ -208,12 +208,16 @@ pub fn printStacktrace(self: *Self, comptime err: bool) void {
         switch (v.routine.*) {
             .user => |r| {
                 const ip = if (err) v.ip - 1 else v.ip;
-                print(">>> [{d: >5}] ", .{ip});
+                if (i == self.frame.count - 1) {
+                    print("-> [{d: >5}] ", .{ip});
+                } else {
+                    print("-- [{d: >5}] ", .{ip});
+                }
                 r[ip].print(stderr) catch {};
                 print("\n", .{});
             },
             .native => |_| {
-                print(">>> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{v.ip});
+                print("-> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{v.ip});
             },
         }
     }
