@@ -47,17 +47,17 @@ pub const Instruction = union(enum) {
     pub fn print(self: Instruction, writer: anytype) !void {
         try switch (self) {
             .psh => |v| {
-                try writer.writeAll("PSH ");
+                try writer.writeAll("PUSH ");
                 try v.print(writer);
             },
-            .cal => |v| std.fmt.format(writer, "CAL {s}", .{v}),
-            .jmp => |v| std.fmt.format(writer, "JMP {d}", .{v}),
-            .jif => |v| std.fmt.format(writer, "JIF {d}", .{v}),
+            .cal => |v| std.fmt.format(writer, "CALL \"{s}\"", .{v}),
+            .jmp => |v| std.fmt.format(writer, "JUMP {d}", .{v}),
+            .jif => |v| std.fmt.format(writer, "JUMP-IF-FALSE {d}", .{v}),
             .add => writer.writeAll("ADD"),
             .sub => writer.writeAll("SUB"),
             .div => writer.writeAll("DIV"),
             .mul => writer.writeAll("MUL"),
-            .ret => writer.writeAll("RET"),
+            .ret => writer.writeAll("RETURN"),
             .nop => writer.writeAll("NOP"),
         };
     }
