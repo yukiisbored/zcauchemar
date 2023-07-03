@@ -1,30 +1,24 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const Stack = @import("./stack.zig").Stack;
+
 const Self = @This();
 
-ip: [FRAMES_MAX]Frame,
-ip_top: usize,
-
-stack: [STACK_MAX]Value,
-stack_top: usize,
-
+frame: FrameStack,
+stack: ValueStack,
 routines: std.StringHashMap(Routine),
 
 const DEBUG = builtin.mode == std.builtin.Mode.Debug;
 
-const FRAMES_MAX = 64;
-const STACK_MAX = FRAMES_MAX * 256;
+const FrameStack = Stack(Frame, 64);
+const ValueStack = Stack(Value, FrameStack.capacity * 256);
 
 pub const RuntimeError = error{
-    StackFull,
-    StackEmpty,
-    FrameFull,
-    FrameEmpty,
     InvalidType,
     UnknownRoutine,
     MissingEntrypoint,
-};
+} || FrameStack.StackError || ValueStack.StackError;
 
 pub const Value = union(enum) {
     n: i32,
@@ -81,12 +75,8 @@ const Frame = struct {
 
 pub fn init(allocator: std.mem.Allocator) !Self {
     var res = Self{
-        .ip = undefined,
-        .ip_top = 0,
-
-        .stack = undefined,
-        .stack_top = 0,
-
+        .frame = FrameStack.init(),
+        .stack = ValueStack.init(),
         .routines = std.StringHashMap(Routine).init(allocator),
     };
 
@@ -105,57 +95,13 @@ pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instructi
 
 fn nativePrint(self: *Self) !void {
     const stdout = std.io.getStdOut().writer();
-    try (try self.peekStack()).print(stdout);
+    try (try self.stack.peek()).print(stdout);
     try stdout.writeAll("\n");
-    try self.dropStack();
+    try self.stack.drop();
 }
 
 fn injectNativeRoutines(self: *Self) !void {
     try self.routines.put("PRINT", Routine{ .native = nativePrint });
-}
-
-inline fn pushFrame(self: *Self, frame: Frame) RuntimeError!void {
-    if (self.ip_top > FRAMES_MAX) {
-        return error.FrameFull;
-    }
-    self.ip[self.ip_top] = frame;
-    self.ip_top += 1;
-}
-
-inline fn peekFrame(self: *Self) RuntimeError!*Frame {
-    if (self.ip_top == 0) {
-        return RuntimeError.FrameEmpty;
-    }
-    return &self.ip[self.ip_top - 1];
-}
-
-inline fn dropFrame(self: *Self) RuntimeError!void {
-    if (self.ip_top == 0) {
-        return RuntimeError.FrameEmpty;
-    }
-    self.ip_top -= 1;
-}
-
-inline fn pushStack(self: *Self, value: Value) RuntimeError!void {
-    if (self.stack_top > STACK_MAX) {
-        return error.StackFull;
-    }
-    self.stack[self.stack_top] = value;
-    self.stack_top += 1;
-}
-
-inline fn peekStack(self: *Self) RuntimeError!*Value {
-    if (self.stack_top == 0) {
-        return error.StackEmpty;
-    }
-    return &self.stack[self.stack_top - 1];
-}
-
-inline fn dropStack(self: *Self) RuntimeError!void {
-    if (self.stack_top == 0) {
-        return error.StackEmpty;
-    }
-    self.stack_top -= 1;
 }
 
 const BinaryOp = enum {
@@ -166,12 +112,12 @@ const BinaryOp = enum {
 };
 
 inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
-    const b = switch ((try self.peekStack()).*) {
+    const b = switch ((try self.stack.peek()).*) {
         .n => |n| n,
         else => return error.InvalidType,
     };
-    try self.dropStack();
-    const a = switch ((try self.peekStack()).*) {
+    try self.stack.drop();
+    const a = switch ((try self.stack.peek()).*) {
         .n => |n| n,
         else => return error.InvalidType,
     };
@@ -181,20 +127,19 @@ inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
         .div => @divTrunc(a, b),
         .mul => a * b,
     };
-    (try self.peekStack()).n = res;
+    (try self.stack.peek()).n = res;
 }
 
 pub fn run(self: *Self) !void {
     const program = self.routines.getPtr("PROGRAM") orelse return error.MissingEntrypoint;
-    self.pushFrame(Frame{ .routine = program, .ip = 0 }) catch unreachable;
+    self.frame.push(Frame{ .routine = program, .ip = 0 }) catch unreachable;
 
     while (true) {
         if (DEBUG) {
             self.printStacktrace();
         }
 
-        var frame = try self.peekFrame();
-
+        var frame = try self.frame.peek();
         var ip = frame.ip;
 
         frame.ip += 1;
@@ -203,36 +148,36 @@ pub fn run(self: *Self) !void {
         switch (frame.routine.*) {
             .native => |f| {
                 try f(self);
-                try self.dropFrame();
+                try self.frame.drop();
             },
             .user => |r| {
                 var i = r[ip];
                 switch (i) {
-                    .psh => |p| try self.pushStack(p),
+                    .psh => |p| try self.stack.push(p),
                     .cal => |s| {
                         const routine = self.routines.getPtr(s) orelse return error.UnknownRoutine;
-                        try self.pushFrame(Frame{
+                        try self.frame.push(Frame{
                             .routine = routine,
                             .ip = 0,
                         });
                     },
                     .jmp => |n| frame.ip = n,
                     .jif => |n| {
-                        switch ((try self.peekStack()).*) {
+                        switch ((try self.stack.peek()).*) {
                             .b => |b| if (!b) {
                                 frame.ip = n;
                             },
                             else => return error.InvalidType,
                         }
-                        try self.dropStack();
+                        try self.stack.drop();
                     },
                     .add => try self.binary_op(.add),
                     .sub => try self.binary_op(.sub),
                     .div => try self.binary_op(.div),
                     .mul => try self.binary_op(.mul),
                     .ret => {
-                        try self.dropFrame();
-                        if (self.ip_top == 0) {
+                        try self.frame.drop();
+                        if (self.frame.count == 0) {
                             break;
                         }
                     },
@@ -247,21 +192,21 @@ pub fn printStacktrace(self: *Self) void {
     const stderr = std.io.getStdErr().writer();
     const print = std.debug.print;
     print("STACK: ", .{});
-    for (self.stack[0..self.stack_top], 0..) |i, idx| {
+    for (self.stack.items[0..self.stack.count], 0..) |v, i| {
         print("[", .{});
-        i.print(stderr) catch {};
+        v.print(stderr) catch {};
         print("]", .{});
 
-        if (idx != self.stack_top - 1) {
+        if (i != self.stack.count - 1) {
             print(" ", .{});
         }
     }
     print("\nFRAMES: ", .{});
-    for (self.ip[0..self.ip_top], 0..) |i, idx| {
-        if (idx > 0) {
+    for (self.frame.items[0..self.frame.count], 0..) |v, i| {
+        if (i > 0) {
             print("        ", .{});
         }
-        switch (i.routine.*) {
+        switch (v.routine.*) {
             .user => |r| {
                 print(">>> [{d: >5}] ", .{i.ip});
                 r[i.ip].print(stderr) catch {};

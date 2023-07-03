@@ -19,7 +19,7 @@ pub fn main() !void {
         AST.Program.Routine{
             .name = "PROGRAM",
             .ast = &[_]AST{
-                AST{ .b = false },
+                AST{ .b = true },
                 AST{
                     .@"if" = AST.If{
                         .if_true = &[_]AST{
@@ -46,10 +46,8 @@ pub fn main() !void {
 
     vm.run() catch |err| {
         const msg = switch (err) {
-            error.StackFull => "Stack overflow",
-            error.StackEmpty => "Stack underflow",
-            error.FrameFull => "Frame full",
-            error.FrameEmpty => "Frame underflow",
+            error.Overflow => "Stack overflow",
+            error.Underflow => "Stack underflow",
             error.InvalidType => "Invalid type",
             error.UnknownRoutine => "Unknown routine",
             else => |e| return e,
