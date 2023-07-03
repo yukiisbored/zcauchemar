@@ -16,7 +16,7 @@ pub const Value = union(enum) {
 };
 
 pub const Instruction = union(enum) {
-    psh: *const Value,
+    psh: Value,
     cal: []const u8,
     jmp: usize,
     jif: usize,
@@ -201,7 +201,7 @@ pub const VM = struct {
                 .user => |r| {
                     var i = r[ip];
                     switch (i) {
-                        .psh => |p| try self.pushStack(p.*),
+                        .psh => |p| try self.pushStack(p),
                         .cal => |s| {
                             const routine = self.routines.getPtr(s) orelse return error.UnknownRoutine;
                             try self.pushFrame(Frame{
@@ -210,11 +210,14 @@ pub const VM = struct {
                             });
                         },
                         .jmp => |n| frame.ip = n,
-                        .jif => |n| switch ((try self.peekStack()).*) {
-                            .b => |b| if (b) {
-                                frame.ip = n;
-                            },
-                            else => return error.InvalidType,
+                        .jif => |n| {
+                            switch ((try self.peekStack()).*) {
+                                .b => |b| if (!b) {
+                                    frame.ip = n;
+                                },
+                                else => return error.InvalidType,
+                            }
+                            try self.pullStack();
                         },
                         .add => try self.binary_op(.add),
                         .sub => try self.binary_op(.sub),
