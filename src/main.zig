@@ -53,6 +53,6 @@ pub fn main() !void {
             else => |e| return e,
         };
         print("Runtime Error: {s}\n", .{msg});
-        vm.printStacktrace();
+        vm.printStacktrace(true);
     };
 }

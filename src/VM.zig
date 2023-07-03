@@ -136,14 +136,13 @@ pub fn run(self: *Self) !void {
 
     while (true) {
         if (DEBUG) {
-            self.printStacktrace();
+            self.printStacktrace(false);
         }
 
         var frame = try self.frame.peek();
         var ip = frame.ip;
 
         frame.ip += 1;
-        errdefer frame.ip -= 1;
 
         switch (frame.routine.*) {
             .native => |f| {
@@ -188,10 +187,10 @@ pub fn run(self: *Self) !void {
     }
 }
 
-pub fn printStacktrace(self: *Self) void {
+pub fn printStacktrace(self: *Self, comptime err: bool) void {
     const stderr = std.io.getStdErr().writer();
     const print = std.debug.print;
-    print("STACK: ", .{});
+    print(" STACK: ", .{});
     for (self.stack.items[0..self.stack.count], 0..) |v, i| {
         print("[", .{});
         v.print(stderr) catch {};
@@ -208,12 +207,13 @@ pub fn printStacktrace(self: *Self) void {
         }
         switch (v.routine.*) {
             .user => |r| {
-                print(">>> [{d: >5}] ", .{i.ip});
-                r[i.ip].print(stderr) catch {};
+                const ip = if (err) v.ip - 1 else v.ip;
+                print(">>> [{d: >5}] ", .{ip});
+                r[ip].print(stderr) catch {};
                 print("\n", .{});
             },
             .native => |_| {
-                print(">>> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{i.ip});
+                print(">>> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{v.ip});
             },
         }
     }
