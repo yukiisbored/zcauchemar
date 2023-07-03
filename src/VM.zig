@@ -107,7 +107,7 @@ fn nativePrint(self: *Self) !void {
     const stdout = std.io.getStdOut().writer();
     try (try self.peekStack()).print(stdout);
     try stdout.writeAll("\n");
-    try self.pullStack();
+    try self.dropStack();
 }
 
 fn injectNativeRoutines(self: *Self) !void {
@@ -129,7 +129,7 @@ inline fn peekFrame(self: *Self) RuntimeError!*Frame {
     return &self.ip[self.ip_top - 1];
 }
 
-inline fn pullFrame(self: *Self) RuntimeError!void {
+inline fn dropFrame(self: *Self) RuntimeError!void {
     if (self.ip_top == 0) {
         return RuntimeError.FrameEmpty;
     }
@@ -151,7 +151,7 @@ inline fn peekStack(self: *Self) RuntimeError!*Value {
     return &self.stack[self.stack_top - 1];
 }
 
-inline fn pullStack(self: *Self) RuntimeError!void {
+inline fn dropStack(self: *Self) RuntimeError!void {
     if (self.stack_top == 0) {
         return error.StackEmpty;
     }
@@ -170,7 +170,7 @@ inline fn binary_op(self: *Self, op: BinaryOp) RuntimeError!void {
         .n => |n| n,
         else => return error.InvalidType,
     };
-    try self.pullStack();
+    try self.dropStack();
     const a = switch ((try self.peekStack()).*) {
         .n => |n| n,
         else => return error.InvalidType,
@@ -203,7 +203,7 @@ pub fn run(self: *Self) !void {
         switch (frame.routine.*) {
             .native => |f| {
                 try f(self);
-                try self.pullFrame();
+                try self.dropFrame();
             },
             .user => |r| {
                 var i = r[ip];
@@ -224,14 +224,14 @@ pub fn run(self: *Self) !void {
                             },
                             else => return error.InvalidType,
                         }
-                        try self.pullStack();
+                        try self.dropStack();
                     },
                     .add => try self.binary_op(.add),
                     .sub => try self.binary_op(.sub),
                     .div => try self.binary_op(.div),
                     .mul => try self.binary_op(.mul),
                     .ret => {
-                        try self.pullFrame();
+                        try self.dropFrame();
                         if (self.ip_top == 0) {
                             break;
                         }
