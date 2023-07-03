@@ -19,7 +19,7 @@ pub fn Stack(
         }
 
         pub inline fn push(self: *Self, item: T) StackError!void {
-            if (self.count > capacity) {
+            if (self.count == capacity) {
                 return error.Overflow;
             }
             self.items[self.count] = item;
