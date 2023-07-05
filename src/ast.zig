@@ -25,6 +25,17 @@ pub const AST = union(enum) {
         pub const Routine = struct {
             name: []const u8,
             ast: []const AST,
+
+            pub fn print(self: Routine, writer: anytype) !void {
+                try std.fmt.format(writer, "(routine '{s}' (", .{self.name});
+                for (0.., self.ast) |n, x| {
+                    try x.print(writer);
+                    if (n < self.ast.len - 1) {
+                        try writer.writeAll(" ");
+                    }
+                }
+                try writer.writeAll("))");
+            }
         };
 
         pub fn init(allocator: std.mem.Allocator, vm: *VM, routines: []const Routine) !Program {
@@ -51,6 +62,45 @@ pub const AST = union(enum) {
             self.routines.deinit();
         }
     };
+
+    pub fn print(self: AST, writer: anytype) !void {
+        try switch (self) {
+            .n => |n| std.fmt.format(writer, "(n {})", .{n}),
+            .b => |b| std.fmt.format(writer, "(b {})", .{b}),
+            .id => |i| std.fmt.format(writer, "(id '{s}')", .{i}),
+            .@"if" => |i| {
+                try writer.writeAll("(if (");
+                for (0.., i.if_true) |n, x| {
+                    try x.print(writer);
+                    if (n < i.if_true.len - 1) {
+                        try writer.writeAll(" ");
+                    }
+                }
+                try writer.writeAll(") (");
+                for (0.., i.if_false) |n, x| {
+                    try x.print(writer);
+                    if (n < i.if_false.len - 1) {
+                        try writer.writeAll(" ");
+                    }
+                }
+                try writer.writeAll("))");
+            },
+            .@"while" => |w| {
+                try writer.writeAll("(while (");
+                for (0.., w) |n, x| {
+                    try x.print(writer);
+                    if (n < w.len - 1) {
+                        try writer.writeAll(" ");
+                    }
+                }
+                try writer.writeAll("))");
+            },
+            .add => writer.writeAll("(add)"),
+            .sub => writer.writeAll("(sub)"),
+            .div => writer.writeAll("(div)"),
+            .mul => writer.writeAll("(mul)"),
+        };
+    }
 
     fn compile(
         instructions: *std.ArrayList(VM.Instruction),

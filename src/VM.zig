@@ -9,7 +9,7 @@ frame: FrameStack,
 stack: ValueStack,
 routines: std.StringHashMap(Routine),
 
-const DEBUG = builtin.mode == std.builtin.Mode.Debug;
+const debug = @import("./constants.zig").debug;
 
 const FrameStack = Stack(Frame, 64);
 const ValueStack = Stack(Value, FrameStack.capacity * 256);
@@ -134,7 +134,7 @@ pub fn run(self: *Self) !void {
     self.frame.push(Frame{ .routine = program, .ip = 0 }) catch unreachable;
 
     while (true) {
-        if (DEBUG) {
+        if (debug) {
             self.printStacktrace(false);
         }
 
@@ -216,6 +216,28 @@ pub fn printStacktrace(self: *Self, comptime err: bool) void {
             },
             .native => |_| {
                 print("-> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{v.ip});
+            },
+        }
+    }
+}
+
+pub fn dumpBytecode(self: *Self) void {
+    const stderr = std.io.getStdErr().writer();
+    const print = std.debug.print;
+
+    var it = self.routines.iterator();
+    while (it.next()) |kv| {
+        print("--- {s} ---\n", .{kv.key_ptr.*});
+        switch (kv.value_ptr.*) {
+            .user => |r| {
+                for (0.., r) |i, in| {
+                    print("[{d: >5}] ", .{i});
+                    in.print(stderr) catch {};
+                    print("\n", .{});
+                }
+            },
+            .native => |_| {
+                print("[{d: >5}] -*- NATIVE ROUTINE -*-\n", .{0});
             },
         }
     }

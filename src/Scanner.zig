@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Self = @This();
 
-corpus: []const u8,
+source: []const u8,
 start: usize,
 current: usize,
 line: usize,
@@ -13,9 +13,9 @@ pub const TokenType = enum {
     minus,
     star,
     slash,
-    colon,
 
     // Literals
+    routine,
     identifier,
     number,
 
@@ -41,9 +41,9 @@ pub const Token = struct {
     line: usize,
 };
 
-pub fn init(corpus: []const u8) Self {
+pub fn init(source: []const u8) Self {
     return Self{
-        .corpus = corpus,
+        .source = source,
         .start = 0,
         .current = 0,
         .line = 0,
@@ -59,22 +59,22 @@ fn isAlpha(c: u8) bool {
 }
 
 fn isAtEnd(self: *Self) bool {
-    return self.current >= self.corpus.len;
+    return self.current >= self.source.len;
 }
 
 fn advance(self: *Self) u8 {
     self.current += 1;
-    return self.corpus[self.current - 1];
+    return self.source[self.current - 1];
 }
 
 fn peek(self: *Self) u8 {
     if (self.isAtEnd()) return 0;
-    return self.corpus[self.current];
+    return self.source[self.current];
 }
 
 fn peekNext(self: *Self) u8 {
-    if (self.isAtEnd() or self.current + 1 >= self.corpus.len) return 0;
-    return self.corpus[self.current + 1];
+    if (self.isAtEnd() or self.current + 1 >= self.source.len) return 0;
+    return self.source[self.current + 1];
 }
 
 fn match(self: *Self, c: u8) bool {
@@ -87,7 +87,7 @@ fn match(self: *Self, c: u8) bool {
 fn makeToken(self: *Self, @"type": TokenType) Token {
     return Token{
         .type = @"type",
-        .str = self.corpus[self.start..self.current],
+        .str = self.source[self.start..self.current],
         .line = self.line,
     };
 }
@@ -129,7 +129,7 @@ fn checkKeyword(
 ) TokenType {
     const startPos = self.start + start;
     if (self.current - self.start == start + rest.len and
-        std.mem.eql(u8, self.corpus[startPos .. startPos + rest.len], rest))
+        std.mem.eql(u8, self.source[startPos .. startPos + rest.len], rest))
     {
         return @"type";
     }
@@ -138,8 +138,8 @@ fn checkKeyword(
 }
 
 fn identifierType(self: *Self) TokenType {
-    return switch (self.corpus[self.start]) {
-        'T' => switch (self.corpus[self.start + 1]) {
+    return switch (self.source[self.start]) {
+        'T' => switch (self.source[self.start + 1]) {
             'H' => self.checkKeyword(2, "EN", .then),
             'R' => self.checkKeyword(2, "UE", .true),
             else => .identifier,
@@ -157,6 +157,11 @@ fn identifierType(self: *Self) TokenType {
 
 fn identifier(self: *Self) Token {
     while (isAlpha(self.peek()) or self.peek() == '-') _ = self.advance();
+    if (self.peek() == ':') {
+        const res = self.makeToken(.routine);
+        _ = self.advance();
+        return res;
+    }
     return self.makeToken(self.identifierType());
 }
 
@@ -182,7 +187,6 @@ pub fn scan(self: *Self) Token {
         '-' => self.makeToken(.minus),
         '*' => self.makeToken(.star),
         '/' => self.makeToken(.slash),
-        ':' => self.makeToken(.colon),
         else => self.errorToken("Unexpected character"),
     };
 }
