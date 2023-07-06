@@ -50,7 +50,7 @@ pub fn main() !void {
 
     var scanner = Scanner.init(source);
     var parser = Parser.init(allocator, &scanner, &routines);
-    defer parser.deinit();
+    errdefer parser.deinit();
 
     var fail = false;
 
@@ -87,7 +87,10 @@ pub fn main() !void {
         }
     }
 
-    if (fail) return;
+    if (fail) {
+        parser.deinit();
+        return;
+    }
 
     if (debug) {
         print("=== VM INIT ===\n", .{});
@@ -103,6 +106,9 @@ pub fn main() !void {
     var program = try AST.Program.init(allocator, &vm, routines.items);
     defer program.deinit();
 
+    // We don't need the AST anymore.
+    parser.deinit();
+
     if (debug) {
         print("=== BYTECODE ===\n", .{});
         vm.dumpBytecode();
@@ -115,6 +121,8 @@ pub fn main() !void {
             error.Underflow => "Stack underflow",
             error.InvalidType => "Invalid type",
             error.UnknownRoutine => "Unknown routine",
+            error.MissingEntrypoint => "Missing entrypoint",
+            error.AssertFailed => "Assertion failure",
             else => |e| return e,
         };
         print("Runtime Error: {s}\n", .{msg});
