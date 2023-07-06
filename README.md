@@ -7,7 +7,7 @@ language inspired by [FORTH] but more arcane.
 
 - Emulates the look and feel of a programming language from the 60s to early 70s.
 - Lacks variables and registers.
-- Single global stack which stores 32-bit signed integers and booleans.
+- Single global stack which stores 32-bit signed integers, booleans, and strings.
 - No side-effects, can only print values to a terminal.
 - No Read-Eval-Print-Loop.
 
