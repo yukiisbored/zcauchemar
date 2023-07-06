@@ -162,7 +162,7 @@ fn identifier(self: *Self) Token {
 }
 
 fn number(self: *Self) Token {
-    while (isDigit(self.peek())) _ = self.advance();
+    while (isDigit(self.peek()) or self.peek() == '-') _ = self.advance();
     return self.makeToken(.number);
 }
 
@@ -180,7 +180,12 @@ pub fn scan(self: *Self) Token {
 
     return switch (c) {
         '+' => self.makeToken(.plus),
-        '-' => self.makeToken(.minus),
+        '-' => {
+            if (isDigit(self.peek())) {
+                return self.number();
+            }
+            return self.makeToken(.minus);
+        },
         '*' => self.makeToken(.star),
         '/' => self.makeToken(.slash),
         else => self.errorToken("Unexpected character"),
