@@ -8,8 +8,6 @@ const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
 
 pub fn main() !void {
-    const stderr = std.io.getStdErr();
-
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer {
@@ -17,37 +15,27 @@ pub fn main() !void {
         if (status == .leak) @panic("Memory leak detected");
     }
 
-    var routines = std.ArrayList(AST.Program.Routine).init(allocator);
-    defer routines.deinit();
+    const stderr = std.io.getStdErr();
 
-    // TODO: Load from file
-    const source =
-        \\;; Prints zero
-        \\PRINT-ZERO:
-        \\    0 PRINT
-        \\
-        \\;; Basic arthimetic
-        \\BASIC-ARITHMETIC:
-        \\    1 2 + 3 * 4 /
-        \\
-        \\;; Truth program
-        \\TRUTH-PROGRAM:
-        \\    IF DO 1 PRINT TRUE WHILE
-        \\    ELSE 0 PRINT THEN
-        \\
-        \\;; Entrypoint
-        \\PROGRAM:
-        \\    PRINT-ZERO                        ; Prints zero
-        \\
-        \\    BASIC-ARITHMETIC                  ; Perform basic math
-        \\    TRUE IF TRUE PRINT THEN           ; Prints true if result is greater than 1
-        \\
-        \\    FALSE TRUTH-PROGRAM               ; Run truth program with "FALSE" as input
-    ;
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    if (args.len != 2) {
+        try std.fmt.format(stderr.writer(), "Usage: {s} CAUCHEMAR-FILE\n", .{args[0]});
+        return std.os.exit(1);
+    }
+
+    const path = args[1];
+    const file = try std.fs.cwd().openFile(path, .{ .mode = .read_only });
+    const source = try file.readToEndAlloc(allocator, std.math.maxInt(u32));
+    defer allocator.free(source);
 
     if (debug) {
         print("=== SOURCE ===\n{s}\n", .{source});
     }
+
+    var routines = std.ArrayList(AST.Program.Routine).init(allocator);
+    defer routines.deinit();
 
     var scanner = Scanner.init(source);
     var parser = Parser.init(allocator, &scanner, &routines);
