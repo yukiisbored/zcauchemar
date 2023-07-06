@@ -158,6 +158,13 @@ fn nativeAssert(self: *Self) !void {
     }
 }
 
+fn nativeNot(self: *Self) !void {
+    try self.stack.push(switch (try self.stack.pop()) {
+        .b => |b| .{ .b = !b },
+        else => return error.InvalidType,
+    });
+}
+
 const BooleanBinaryOp = enum {
     @"or",
     @"and",
@@ -253,6 +260,7 @@ fn injectNativeRoutines(self: *Self) !void {
         // Boolean operations
         .{ .name = "OR", .func = nativeOr },
         .{ .name = "AND", .func = nativeAnd },
+        .{ .name = "NOT", .func = nativeNot },
 
         // Number comparators
         .{ .name = "GREATER-THAN", .func = nativeGreaterThan },
