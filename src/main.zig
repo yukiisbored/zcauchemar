@@ -22,26 +22,27 @@ pub fn main() !void {
 
     // TODO: Load from file
     const source =
-        \\// Prints zero
+        \\;; Prints zero
         \\PRINT-ZERO:
         \\    0 PRINT
         \\
-        \\// Basic arthimetic
+        \\;; Basic arthimetic
         \\BASIC-ARITHMETIC:
         \\    1 2 + 3 * 4 /
         \\
-        \\// Truth program
+        \\;; Truth program
         \\TRUTH-PROGRAM:
         \\    IF DO 1 PRINT TRUE WHILE
         \\    ELSE 0 PRINT THEN
         \\
+        \\;; Entrypoint
         \\PROGRAM:
-        \\    PRINT-ZERO                        // Prints zero
+        \\    PRINT-ZERO                        ; Prints zero
         \\
-        \\    BASIC-ARITHMETIC                  // Perform basic math
-        \\    TRUE IF TRUE PRINT THEN // Prints true if result is greater than 1
+        \\    BASIC-ARITHMETIC                  ; Perform basic math
+        \\    TRUE IF TRUE PRINT THEN           ; Prints true if result is greater than 1
         \\
-        \\    FALSE TRUTH-PROGRAM               // Run truth program with "FALSE" as input
+        \\    FALSE TRUTH-PROGRAM               ; Run truth program with "FALSE" as input
     ;
 
     if (debug) {

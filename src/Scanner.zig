@@ -109,12 +109,8 @@ fn skipWhitespace(self: *Self) void {
                 self.line += 1;
                 _ = self.advance();
             },
-            '/' => {
-                if (self.peekNext() == '/') {
-                    while (self.peek() != '\n' and !self.isAtEnd()) _ = self.advance();
-                } else {
-                    return;
-                }
+            ';' => {
+                while (self.peek() != '\n' and !self.isAtEnd()) _ = self.advance();
             },
             else => return,
         }
