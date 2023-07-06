@@ -86,7 +86,7 @@ programming languages or computing environments (i.e. [WebAssembly], [JVM],
 "Cauchemar" is the French word for "Nightmare" which is the origin of the
 programming language.
 
-## How do you pronounce the name?
+### How do you pronounce the name?
 
 This section is left as an excercise for the reader.
 
