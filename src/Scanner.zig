@@ -18,6 +18,7 @@ pub const TokenType = enum {
     routine,
     identifier,
     number,
+    string,
 
     // Keywords
     true,
@@ -166,6 +167,19 @@ fn number(self: *Self) Token {
     return self.makeToken(.number);
 }
 
+fn string(self: *Self) Token {
+    while (self.peek() != '"' and !self.isAtEnd()) {
+        if (self.peek() == '\n') self.line += 1;
+        _ = self.advance();
+    }
+
+    if (self.isAtEnd()) return self.errorToken("Unterminated string");
+
+    _ = self.advance();
+
+    return self.makeToken(.string);
+}
+
 pub fn scan(self: *Self) Token {
     self.skipWhitespace();
 
@@ -188,6 +202,7 @@ pub fn scan(self: *Self) Token {
         },
         '*' => self.makeToken(.star),
         '/' => self.makeToken(.slash),
+        '"' => self.string(),
         else => self.errorToken("Unexpected character"),
     };
 }

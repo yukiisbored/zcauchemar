@@ -5,6 +5,7 @@ const VM = @import("./VM.zig");
 pub const AST = union(enum) {
     n: i32,
     b: bool,
+    s: []const u8,
     id: []const u8,
     @"if": If,
     @"while": []const AST,
@@ -67,6 +68,7 @@ pub const AST = union(enum) {
         try switch (self) {
             .n => |n| std.fmt.format(writer, "(n {})", .{n}),
             .b => |b| std.fmt.format(writer, "(b {})", .{b}),
+            .s => |s| std.fmt.format(writer, "(s '{s}')", .{s}),
             .id => |i| std.fmt.format(writer, "(id '{s}')", .{i}),
             .@"if" => |i| {
                 try writer.writeAll("(if (");
@@ -110,6 +112,7 @@ pub const AST = union(enum) {
             switch (c) {
                 .n => |n| try instructions.append(VM.Instruction{ .psh = VM.Value{ .n = n } }),
                 .b => |b| try instructions.append(VM.Instruction{ .psh = VM.Value{ .b = b } }),
+                .s => |s| try instructions.append(VM.Instruction{ .psh = VM.Value{ .s = s } }),
                 .id => |s| try instructions.append(VM.Instruction{ .cal = s }),
                 .@"if" => |s| {
                     try instructions.append(VM.Instruction{ .jif = 0 });

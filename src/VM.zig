@@ -24,11 +24,13 @@ pub const RuntimeError = error{
 pub const Value = union(enum) {
     n: i32,
     b: bool,
+    s: []const u8,
 
     pub fn print(self: Value, writer: anytype) !void {
         try switch (self) {
             .n => |n| std.fmt.format(writer, "{}", .{n}),
             .b => |b| if (b) writer.writeAll("TRUE") else writer.writeAll("FALSE"),
+            .s => |s| writer.writeAll(s),
         };
     }
 
@@ -40,6 +42,10 @@ pub const Value = union(enum) {
             },
             .b => |a| switch (other) {
                 .b => |b| a == b,
+                else => error.InvalidType,
+            },
+            .s => |a| switch (other) {
+                .s => |b| std.mem.eql(u8, a, b),
                 else => error.InvalidType,
             },
         };

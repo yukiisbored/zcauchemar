@@ -1,12 +1,13 @@
 PROGRAM:
+  "Hello, world!" PRINT       ; Display "Hello, world!"
   16 32 + 4 2 * /             ; Calculate (16 + 32) / (4 * 2)
   DUP PRINT                   ; Print the result
   DUP 6 EQUALS ASSERT         ; Validate the result
   PLUS-FORTY-TWO              ; Call routine "PLUS-FORTY-TWO"
   
   DUP 50 GREATER-THAN         ; Check if the result is greater than 50
-  IF   0 PRINT
-  ELSE 1 PRINT
+  IF   "This is wrong" PRINT
+  ELSE "This is right" PRINT
   THEN
   
   DO 1 -                      ; Count down to 0

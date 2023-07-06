@@ -133,6 +133,10 @@ fn boolean(self: *Self, target: *std.ArrayList(AST)) Error!void {
     );
 }
 
+fn string(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try target.append(AST{ .s = self.previous.str[1 .. self.previous.str.len - 1] });
+}
+
 fn identifier(self: *Self, target: *std.ArrayList(AST)) Error!void {
     try target.append(AST{ .id = self.previous.str });
 }
@@ -148,6 +152,8 @@ fn command(self: *Self, target: *std.ArrayList(AST)) Error!void {
         try self.arithmetic(target);
     } else if (try self.match(.true) or try self.match(.false)) {
         try self.boolean(target);
+    } else if (try self.match(.string)) {
+        try self.string(target);
     } else if (try self.match(.identifier)) {
         try self.identifier(target);
     } else {

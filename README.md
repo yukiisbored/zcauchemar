@@ -13,14 +13,15 @@ language inspired by [FORTH] but more arcane.
 
 ```cauchemar
 PROGRAM:
+  "Hello, world!" PRINT       ; Display "Hello, world!"
   16 32 + 4 2 * /             ; Calculate (16 + 32) / (4 * 2)
   DUP PRINT                   ; Print the result
   DUP 6 EQUALS ASSERT         ; Validate the result
   PLUS-FORTY-TWO              ; Call routine "PLUS-FORTY-TWO"
   
   DUP 50 GREATER-THAN         ; Check if the result is greater than 50
-  IF   0 PRINT
-  ELSE 1 PRINT
+  IF   "This is wrong" PRINT
+  ELSE "This is right" PRINT
   THEN
   
   DO 1 -                      ; Count down to 0
@@ -42,9 +43,7 @@ zcauchemar is the successor to the [original implementation] in [Rust].
 
 ## Planned features
 
-- Strings
-  - Constant strings from source file
-  - Runtime-allocated strings
+- Runtime-allocated Strings
 - User input ("Requests")
 - General value containers for long-live variables ("Blocks")
 - Human-readable errors
