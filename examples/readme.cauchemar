@@ -1,0 +1,21 @@
+PROGRAM:
+  16 32 + 4 2 * /             ; Calculate (16 + 32) / (4 * 2)
+  DUP PRINT                   ; Print the result
+  DUP 6 EQUALS ASSERT         ; Validate the result
+  PLUS-FORTY-TWO              ; Call routine "PLUS-FORTY-TWO"
+  
+  DUP 50 GREATER-THAN         ; Check if the result is greater than 50
+  IF   0 PRINT
+  ELSE 1 PRINT
+  THEN
+  
+  DO 1 -                      ; Count down to 0
+     DUP PRINT 
+     DUP 0 GREATER-THAN 
+  WHILE
+  
+  DROP                        ; Reject the top of the stack
+
+
+PLUS-FORTY-TWO:
+  42 +                        ; Add 42 to the top of the stack
