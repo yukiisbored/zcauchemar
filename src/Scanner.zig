@@ -51,6 +51,8 @@ pub fn init(source: []const u8) Self {
     };
 }
 
+// === HELPER FUNCTIONS === //
+
 fn isDigit(c: u8) bool {
     return c >= '0' and c <= '9';
 }
@@ -63,24 +65,33 @@ fn isAtEnd(self: *Self) bool {
     return self.current >= self.source.len;
 }
 
-fn advance(self: *Self) u8 {
+fn forward(self: *Self) void {
     self.current += 1;
+}
+
+fn advance(self: *Self) u8 {
+    self.forward();
     return self.source[self.current - 1];
 }
 
 fn peek(self: *Self) u8 {
-    if (self.isAtEnd()) return 0;
+    if (self.isAtEnd()) {
+        return 0;
+    }
     return self.source[self.current];
 }
 
 fn peekNext(self: *Self) u8 {
-    if (self.isAtEnd() or self.current + 1 >= self.source.len) return 0;
+    if (self.isAtEnd() or self.current + 1 >= self.source.len) {
+        return 0;
+    }
     return self.source[self.current + 1];
 }
 
 fn match(self: *Self, c: u8) bool {
-    if (self.isAtEnd()) return false;
-    if (self.peek() != c) return false;
+    if (self.isAtEnd() or self.peek() != c) {
+        return false;
+    }
     self.current += 1;
     return true;
 }
@@ -101,23 +112,6 @@ fn errorToken(self: *Self, message: []const u8) Token {
     };
 }
 
-fn skipWhitespace(self: *Self) void {
-    while (true) {
-        const c = self.peek();
-        switch (c) {
-            ' ', '\r', '\t' => _ = self.advance(),
-            '\n' => {
-                self.line += 1;
-                _ = self.advance();
-            },
-            ';' => {
-                while (self.peek() != '\n' and !self.isAtEnd()) _ = self.advance();
-            },
-            else => return,
-        }
-    }
-}
-
 fn checkKeyword(
     self: *Self,
     start: usize,
@@ -132,6 +126,27 @@ fn checkKeyword(
     }
 
     return .identifier;
+}
+
+// === LEXER === //
+
+fn skipWhitespace(self: *Self) void {
+    while (true) {
+        const c = self.peek();
+        switch (c) {
+            ' ', '\r', '\t' => self.forward(),
+            '\n' => {
+                self.line += 1;
+                self.forward();
+            },
+            ';' => {
+                while (self.peek() != '\n' and !self.isAtEnd()) {
+                    self.forward();
+                }
+            },
+            else => return,
+        }
+    }
 }
 
 fn identifierType(self: *Self) TokenType {
@@ -153,29 +168,40 @@ fn identifierType(self: *Self) TokenType {
 }
 
 fn identifier(self: *Self) Token {
-    while (isAlpha(self.peek()) or self.peek() == '-') _ = self.advance();
+    while (isAlpha(self.peek()) or self.peek() == '-') {
+        self.forward();
+    }
+
     if (self.peek() == ':') {
         const res = self.makeToken(.routine);
-        _ = self.advance();
+        self.forward();
         return res;
     }
     return self.makeToken(self.identifierType());
 }
 
 fn number(self: *Self) Token {
-    while (isDigit(self.peek()) or self.peek() == '-') _ = self.advance();
+    while (isDigit(self.peek()) or self.peek() == '-') {
+        self.forward();
+    }
+
     return self.makeToken(.number);
 }
 
 fn string(self: *Self) Token {
     while (self.peek() != '"' and !self.isAtEnd()) {
-        if (self.peek() == '\n') self.line += 1;
-        _ = self.advance();
+        if (self.peek() == '\n') {
+            self.line += 1;
+        }
+
+        self.forward();
     }
 
-    if (self.isAtEnd()) return self.errorToken("Unterminated string");
+    if (self.isAtEnd()) {
+        return self.errorToken("Unterminated string");
+    }
 
-    _ = self.advance();
+    self.forward();
 
     return self.makeToken(.string);
 }
@@ -185,12 +211,19 @@ pub fn scan(self: *Self) Token {
 
     self.start = self.current;
 
-    if (self.isAtEnd()) return self.makeToken(.eof);
+    if (self.isAtEnd()) {
+        return self.makeToken(.eof);
+    }
 
     const c = self.advance();
 
-    if (isAlpha(c)) return self.identifier();
-    if (isDigit(c)) return self.number();
+    if (isAlpha(c)) {
+        return self.identifier();
+    }
+
+    if (isDigit(c)) {
+        return self.number();
+    }
 
     return switch (c) {
         '+' => self.makeToken(.plus),
