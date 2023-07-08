@@ -14,6 +14,8 @@ const debug = @import("./constants.zig").debug;
 const FrameStack = Stack(Frame, 64);
 const ValueStack = Stack(Value, FrameStack.capacity * 256);
 
+const stdlib_routines = @import("./stdlib.zig").routines;
+
 pub const RuntimeError = error{
     InvalidType,
     UnknownRoutine,
@@ -83,6 +85,11 @@ pub const Instruction = union(enum) {
     }
 };
 
+pub const NativeRoutine = struct {
+    name: []const u8,
+    func: *const fn (self: *Self) anyerror!void,
+};
+
 const Routine = union(enum) {
     user: []const Instruction,
     native: *const fn (self: *Self) anyerror!void,
@@ -100,7 +107,9 @@ pub fn init(allocator: std.mem.Allocator) !Self {
         .routines = std.StringHashMap(Routine).init(allocator),
     };
 
-    try res.injectNativeRoutines();
+    inline for (stdlib_routines) |r| {
+        try res.routines.put(r.name, Routine{ .native = r.func });
+    }
 
     return res;
 }
@@ -111,173 +120,6 @@ pub fn deinit(self: *Self) void {
 
 pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instruction) !void {
     try self.routines.put(name, Routine{ .user = instructions });
-}
-
-fn nativePrint(self: *Self) !void {
-    const stdout = std.io.getStdOut().writer();
-    try (try self.stack.pop()).print(stdout);
-    try stdout.writeAll("\n");
-}
-
-fn nativeDrop(self: *Self) !void {
-    try self.stack.drop();
-}
-
-fn nativeDup(self: *Self) !void {
-    try self.stack.push((try self.stack.peek()).*);
-}
-
-fn nativeSwap(self: *Self) !void {
-    const top = try self.stack.pop();
-    const below = try self.stack.pop();
-    try self.stack.push(top);
-    try self.stack.push(below);
-}
-
-fn nativeRot(self: *Self) !void {
-    const a = try self.stack.pop();
-    const b = try self.stack.pop();
-    const c = try self.stack.pop();
-    try self.stack.push(b);
-    try self.stack.push(a);
-    try self.stack.push(c);
-}
-
-fn nativeOver(self: *Self) !void {
-    const a = try self.stack.pop();
-    const b = try self.stack.pop();
-    try self.stack.push(b);
-    try self.stack.push(a);
-    try self.stack.push(b);
-}
-
-fn nativeEquals(self: *Self) !void {
-    const a = try self.stack.pop();
-    const b = try self.stack.pop();
-    try self.stack.push(.{ .b = try a.equals(b) });
-}
-
-fn nativeAssert(self: *Self) !void {
-    switch (try self.stack.pop()) {
-        .b => |b| if (!b) return error.AssertFailed,
-        else => return error.InvalidType,
-    }
-}
-
-fn nativeNot(self: *Self) !void {
-    try self.stack.push(switch (try self.stack.pop()) {
-        .b => |b| .{ .b = !b },
-        else => return error.InvalidType,
-    });
-}
-
-const BooleanBinaryOp = enum {
-    @"or",
-    @"and",
-};
-
-inline fn nativeBooleanBinaryOp(self: *Self, comptime op: BooleanBinaryOp) !void {
-    const a = switch (try self.stack.pop()) {
-        .b => |b| b,
-        else => return error.InvalidType,
-    };
-    const t = try self.stack.peek();
-    const b = switch (t.*) {
-        .b => |b| b,
-        else => return error.InvalidType,
-    };
-    const res = switch (op) {
-        .@"or" => a or b,
-        .@"and" => a and b,
-    };
-    t.b = res;
-}
-
-const NumberComparisonOp = enum {
-    gt,
-    ge,
-    lt,
-    le,
-};
-
-inline fn nativeNumberComparisonOp(self: *Self, comptime op: NumberComparisonOp) !void {
-    const b = switch (try self.stack.pop()) {
-        .n => |n| n,
-        else => return error.InvalidType,
-    };
-    const a = switch (try self.stack.pop()) {
-        .n => |n| n,
-        else => return error.InvalidType,
-    };
-    const res = switch (op) {
-        .gt => a > b,
-        .ge => a >= b,
-        .lt => a < b,
-        .le => a <= b,
-    };
-    try self.stack.push(Value{ .b = res });
-}
-
-// FIXME: Use function definition expressions once it's implemented.
-//        https://github.com/ziglang/zig/issues/1717
-fn nativeOr(self: *Self) !void {
-    return self.nativeBooleanBinaryOp(.@"or");
-}
-
-fn nativeAnd(self: *Self) !void {
-    return self.nativeBooleanBinaryOp(.@"and");
-}
-
-fn nativeGreaterThan(self: *Self) !void {
-    return self.nativeNumberComparisonOp(.gt);
-}
-
-fn nativeGreaterEqual(self: *Self) !void {
-    return self.nativeNumberComparisonOp(.ge);
-}
-
-fn nativeLessThan(self: *Self) !void {
-    return self.nativeNumberComparisonOp(.lt);
-}
-
-fn nativeLessEqual(self: *Self) !void {
-    return self.nativeNumberComparisonOp(.le);
-}
-
-const NativeRoutine = struct {
-    name: []const u8,
-    func: *const fn (self: *Self) anyerror!void,
-};
-
-fn injectNativeRoutines(self: *Self) !void {
-    const xs = comptime [_]NativeRoutine{
-        // General purpose
-        .{ .name = "PRINT", .func = nativePrint },
-        .{ .name = "ASSERT", .func = nativeAssert },
-        .{ .name = "EQUALS", .func = nativeEquals },
-
-        // Stack manipulation
-        .{ .name = "DROP", .func = nativeDrop },
-        .{ .name = "DUP", .func = nativeDup },
-        .{ .name = "SWAP", .func = nativeSwap },
-        .{ .name = "ROT", .func = nativeRot },
-        .{ .name = "OVER", .func = nativeOver },
-
-        // Boolean operations
-        .{ .name = "OR", .func = nativeOr },
-        .{ .name = "AND", .func = nativeAnd },
-        .{ .name = "NOT", .func = nativeNot },
-
-        // Number comparators
-        .{ .name = "GREATER-THAN", .func = nativeGreaterThan },
-        .{ .name = "GREATER-EQUAL", .func = nativeGreaterEqual },
-        .{ .name = "LESS-THAN", .func = nativeLessThan },
-        .{ .name = "LESS-EQUAL", .func = nativeLessEqual },
-    };
-
-    inline for (xs) |x| {
-        try self.routines.put(x.name, .{ .native = x.func });
-    }
 }
 
 const BinaryOp = enum {
