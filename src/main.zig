@@ -49,8 +49,8 @@ pub fn main() !void {
 
     parser.parse() catch |err| switch (err) {
         error.ParserError => {
-            const token = parser.errorToken orelse unreachable;
-            const message = parser.errorMessage orelse unreachable;
+            const token = parser.error_token orelse unreachable;
+            const message = parser.error_message orelse unreachable;
 
             print("Error on line {}", .{token.line});
 

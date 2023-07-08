@@ -13,16 +13,47 @@ routines: *std.ArrayList(AST.Program.Routine),
 current: Scanner.Token,
 previous: Scanner.Token,
 
-errorToken: ?*const Scanner.Token,
-errorMessage: ?[]const u8,
+error_token: ?*const Scanner.Token,
+error_message: ?[]const u8,
 
 pub const Error = error{
     ParserError,
 } || std.mem.Allocator.Error;
 
+pub fn init(
+    allocator: std.mem.Allocator,
+    scanner: *Scanner,
+    routines: *std.ArrayList(AST.Program.Routine),
+) Self {
+    const initToken = Scanner.Token{
+        .type = .eof,
+        .str = "",
+        .line = 0,
+    };
+
+    return Self{
+        .arena = std.heap.ArenaAllocator.init(allocator),
+
+        .scanner = scanner,
+        .routines = routines,
+
+        .previous = initToken,
+        .current = initToken,
+
+        .error_token = null,
+        .error_message = null,
+    };
+}
+
+pub fn deinit(self: *Self) void {
+    self.arena.deinit();
+}
+
+// == HELPER FUNCTIONS == //
+
 fn errorAt(self: *Self, token: *const Scanner.Token, message: []const u8) Error!void {
-    self.errorToken = token;
-    self.errorMessage = message;
+    self.error_token = token;
+    self.error_message = message;
 
     return Error.ParserError;
 }
@@ -40,7 +71,10 @@ fn advance(self: *Self) Error!void {
 
     while (true) {
         self.current = self.scanner.scan();
-        if (self.current.type != .@"error") break;
+
+        if (self.current.type != .@"error") {
+            break;
+        }
 
         try self.errorAtCurrent(self.current.str);
     }
@@ -60,13 +94,21 @@ fn check(self: *Self, @"type": Scanner.TokenType) bool {
 }
 
 fn match(self: *Self, @"type": Scanner.TokenType) Error!bool {
-    if (!self.check(@"type")) return false;
+    if (!self.check(@"type")) {
+        return false;
+    }
+
     try self.advance();
+
     return true;
 }
 
+// == GRAMMAR == //
+
 fn whileBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
     const allocator = self.arena.allocator();
+
+    try self.advance();
 
     var commands = std.ArrayList(AST).init(allocator);
 
@@ -81,6 +123,8 @@ fn whileBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
 
 fn ifBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
     const allocator = self.arena.allocator();
+
+    try self.advance();
 
     var if_true = std.ArrayList(AST).init(allocator);
     while (!(self.check(.then) or self.check(.@"else"))) {
@@ -108,10 +152,12 @@ fn ifBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
 }
 
 fn number(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try self.advance();
     try target.append(AST{ .n = std.fmt.parseInt(i32, self.previous.str, 10) catch unreachable });
 }
 
 fn arithmetic(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try self.advance();
     try target.append(
         switch (self.previous.type) {
             .plus => .add,
@@ -124,6 +170,7 @@ fn arithmetic(self: *Self, target: *std.ArrayList(AST)) Error!void {
 }
 
 fn boolean(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try self.advance();
     try target.append(
         switch (self.previous.type) {
             .true => AST{ .b = true },
@@ -134,30 +181,25 @@ fn boolean(self: *Self, target: *std.ArrayList(AST)) Error!void {
 }
 
 fn string(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try self.advance();
     try target.append(AST{ .s = self.previous.str[1 .. self.previous.str.len - 1] });
 }
 
 fn identifier(self: *Self, target: *std.ArrayList(AST)) Error!void {
+    try self.advance();
     try target.append(AST{ .id = self.previous.str });
 }
 
 fn command(self: *Self, target: *std.ArrayList(AST)) Error!void {
-    if (try self.match(.do)) {
-        try self.whileBlock(target);
-    } else if (try self.match(.@"if")) {
-        try self.ifBlock(target);
-    } else if (try self.match(.number)) {
-        try self.number(target);
-    } else if (try self.match(.plus) or try self.match(.minus) or try self.match(.slash) or try self.match(.star)) {
-        try self.arithmetic(target);
-    } else if (try self.match(.true) or try self.match(.false)) {
-        try self.boolean(target);
-    } else if (try self.match(.string)) {
-        try self.string(target);
-    } else if (try self.match(.identifier)) {
-        try self.identifier(target);
-    } else {
-        try self.errorAtCurrent("Unexpected syntax");
+    switch (self.current.type) {
+        .do => try self.whileBlock(target),
+        .@"if" => try self.ifBlock(target),
+        .number => try self.number(target),
+        .plus, .minus, .slash, .star => try self.arithmetic(target),
+        .true, .false => try self.boolean(target),
+        .string => try self.string(target),
+        .identifier => try self.identifier(target),
+        inline else => try self.errorAtCurrent("Unexpected syntax"),
     }
 }
 
@@ -166,7 +208,7 @@ fn routine(self: *Self) Error!void {
 
     try self.consume(.routine, "Expected routine");
 
-    const routineName = self.previous.str;
+    const routine_name = self.previous.str;
     var commands = std.ArrayList(AST).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
@@ -175,40 +217,10 @@ fn routine(self: *Self) Error!void {
 
     try self.routines.append(
         AST.Program.Routine{
-            .name = routineName,
+            .name = routine_name,
             .ast = commands.items,
         },
     );
-}
-
-pub fn init(
-    allocator: std.mem.Allocator,
-    scanner: *Scanner,
-    routines: *std.ArrayList(AST.Program.Routine),
-) Self {
-    const initToken =
-        Scanner.Token{
-        .type = .eof,
-        .str = "",
-        .line = 0,
-    };
-
-    return Self{
-        .arena = std.heap.ArenaAllocator.init(allocator),
-
-        .scanner = scanner,
-        .routines = routines,
-
-        .previous = initToken,
-        .current = initToken,
-
-        .errorToken = null,
-        .errorMessage = null,
-    };
-}
-
-pub fn deinit(self: *Self) void {
-    self.arena.deinit();
 }
 
 pub fn parse(self: *Self) Error!void {
