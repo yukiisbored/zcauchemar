@@ -51,22 +51,22 @@ pub fn deinit(self: *Self) void {
 
 // == HELPER FUNCTIONS == //
 
-fn errorAt(self: *Self, token: *const Scanner.Token, message: []const u8) Error!void {
+inline fn errorAt(self: *Self, token: *const Scanner.Token, message: []const u8) Error!void {
     self.error_token = token;
     self.error_message = message;
 
     return Error.ParserError;
 }
 
-fn @"error"(self: *Self, message: []const u8) Error!void {
+inline fn @"error"(self: *Self, message: []const u8) Error!void {
     try self.errorAt(&self.previous, message);
 }
 
-fn errorAtCurrent(self: *Self, message: []const u8) Error!void {
+inline fn errorAtCurrent(self: *Self, message: []const u8) Error!void {
     try self.errorAt(&self.current, message);
 }
 
-fn advance(self: *Self) Error!void {
+inline fn advance(self: *Self) Error!void {
     self.previous = self.current;
 
     while (true) {
@@ -80,7 +80,7 @@ fn advance(self: *Self) Error!void {
     }
 }
 
-fn consume(self: *Self, @"type": Scanner.TokenType, message: []const u8) Error!void {
+inline fn consume(self: *Self, @"type": Scanner.TokenType, message: []const u8) Error!void {
     if (self.current.type == @"type") {
         try self.advance();
         return;
@@ -89,11 +89,11 @@ fn consume(self: *Self, @"type": Scanner.TokenType, message: []const u8) Error!v
     try self.errorAtCurrent(message);
 }
 
-fn check(self: *Self, @"type": Scanner.TokenType) bool {
+inline fn check(self: *Self, @"type": Scanner.TokenType) bool {
     return self.current.type == @"type";
 }
 
-fn match(self: *Self, @"type": Scanner.TokenType) Error!bool {
+inline fn match(self: *Self, @"type": Scanner.TokenType) Error!bool {
     if (!self.check(@"type")) {
         return false;
     }

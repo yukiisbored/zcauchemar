@@ -53,42 +53,42 @@ pub fn init(source: []const u8) Self {
 
 // === HELPER FUNCTIONS === //
 
-fn isDigit(c: u8) bool {
+inline fn isDigit(c: u8) bool {
     return c >= '0' and c <= '9';
 }
 
-fn isAlpha(c: u8) bool {
+inline fn isAlpha(c: u8) bool {
     return c >= 'A' and c <= 'Z';
 }
 
-fn isAtEnd(self: *Self) bool {
+inline fn isAtEnd(self: *Self) bool {
     return self.current >= self.source.len;
 }
 
-fn forward(self: *Self) void {
+inline fn forward(self: *Self) void {
     self.current += 1;
 }
 
-fn advance(self: *Self) u8 {
+inline fn advance(self: *Self) u8 {
     self.forward();
     return self.source[self.current - 1];
 }
 
-fn peek(self: *Self) u8 {
+inline fn peek(self: *Self) u8 {
     if (self.isAtEnd()) {
         return 0;
     }
     return self.source[self.current];
 }
 
-fn peekNext(self: *Self) u8 {
+inline fn peekNext(self: *Self) u8 {
     if (self.isAtEnd() or self.current + 1 >= self.source.len) {
         return 0;
     }
     return self.source[self.current + 1];
 }
 
-fn match(self: *Self, c: u8) bool {
+inline fn match(self: *Self, c: u8) bool {
     if (self.isAtEnd() or self.peek() != c) {
         return false;
     }
@@ -96,7 +96,7 @@ fn match(self: *Self, c: u8) bool {
     return true;
 }
 
-fn makeToken(self: *Self, @"type": TokenType) Token {
+inline fn makeToken(self: *Self, @"type": TokenType) Token {
     return Token{
         .type = @"type",
         .str = self.source[self.start..self.current],
@@ -104,7 +104,7 @@ fn makeToken(self: *Self, @"type": TokenType) Token {
     };
 }
 
-fn errorToken(self: *Self, message: []const u8) Token {
+inline fn errorToken(self: *Self, message: []const u8) Token {
     return Token{
         .type = .@"error",
         .str = message,
@@ -112,7 +112,7 @@ fn errorToken(self: *Self, message: []const u8) Token {
     };
 }
 
-fn checkKeyword(
+inline fn checkKeyword(
     self: *Self,
     start: usize,
     rest: []const u8,
