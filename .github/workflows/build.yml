@@ -1,0 +1,20 @@
+name: "Build"
+
+on:
+  push: {}
+  pull_request: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+       fetch-depth: 0
+    - uses: cachix/install-nix-action@v22
+    - uses: cachix/cachix-action@v12
+      with:
+        name: zcauchemar
+        authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+    - name: Build
+      run: nix build
