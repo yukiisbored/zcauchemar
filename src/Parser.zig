@@ -1,14 +1,14 @@
 const std = @import("std");
 
 const Scanner = @import("./Scanner.zig");
-const AST = @import("./ast.zig").AST;
+const Ast = @import("./ast.zig").Ast;
 
 const Self = @This();
 
 arena: std.heap.ArenaAllocator,
 
 scanner: *Scanner,
-routines: *std.ArrayList(AST.Program.Routine),
+routines: *std.ArrayList(Ast.Program.Routine),
 
 current: Scanner.Token,
 previous: Scanner.Token,
@@ -23,7 +23,7 @@ pub const Error = error{
 pub fn init(
     allocator: std.mem.Allocator,
     scanner: *Scanner,
-    routines: *std.ArrayList(AST.Program.Routine),
+    routines: *std.ArrayList(Ast.Program.Routine),
 ) Self {
     const initToken = Scanner.Token{
         .type = .eof,
@@ -105,12 +105,12 @@ fn match(self: *Self, @"type": Scanner.TokenType) Error!bool {
 
 // == GRAMMAR == //
 
-fn whileBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn whileBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     const allocator = self.arena.allocator();
 
     try self.advance();
 
-    var commands = std.ArrayList(AST).init(allocator);
+    var commands = std.ArrayList(Ast).init(allocator);
 
     while (!self.check(.@"while")) {
         try self.command(&commands);
@@ -118,20 +118,20 @@ fn whileBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
 
     try self.consume(.@"while", "Expected WHILE");
 
-    try target.append(AST{ .@"while" = commands.items });
+    try target.append(Ast{ .@"while" = commands.items });
 }
 
-fn ifBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn ifBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     const allocator = self.arena.allocator();
 
     try self.advance();
 
-    var if_true = std.ArrayList(AST).init(allocator);
+    var if_true = std.ArrayList(Ast).init(allocator);
     while (!(self.check(.then) or self.check(.@"else"))) {
         try self.command(&if_true);
     }
 
-    var if_false = std.ArrayList(AST).init(allocator);
+    var if_false = std.ArrayList(Ast).init(allocator);
 
     if (try self.match(.@"else")) {
         while (!(self.check(.then))) {
@@ -142,8 +142,8 @@ fn ifBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
     try self.consume(.then, "Expected THEN");
 
     try target.append(
-        AST{
-            .@"if" = AST.If{
+        Ast{
+            .@"if" = Ast.If{
                 .if_true = if_true.items,
                 .if_false = if_false.items,
             },
@@ -151,12 +151,12 @@ fn ifBlock(self: *Self, target: *std.ArrayList(AST)) Error!void {
     );
 }
 
-fn number(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn number(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(AST{ .n = std.fmt.parseInt(i32, self.previous.str, 10) catch unreachable });
+    try target.append(Ast{ .n = std.fmt.parseInt(i32, self.previous.str, 10) catch unreachable });
 }
 
-fn arithmetic(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn arithmetic(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
     try target.append(
         switch (self.previous.type) {
@@ -169,28 +169,28 @@ fn arithmetic(self: *Self, target: *std.ArrayList(AST)) Error!void {
     );
 }
 
-fn boolean(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn boolean(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
     try target.append(
         switch (self.previous.type) {
-            .true => AST{ .b = true },
-            .false => AST{ .b = false },
+            .true => Ast{ .b = true },
+            .false => Ast{ .b = false },
             else => unreachable,
         },
     );
 }
 
-fn string(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn string(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(AST{ .s = self.previous.str[1 .. self.previous.str.len - 1] });
+    try target.append(Ast{ .s = self.previous.str[1 .. self.previous.str.len - 1] });
 }
 
-fn identifier(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn identifier(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(AST{ .id = self.previous.str });
+    try target.append(Ast{ .id = self.previous.str });
 }
 
-fn command(self: *Self, target: *std.ArrayList(AST)) Error!void {
+fn command(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     switch (self.current.type) {
         .do => try self.whileBlock(target),
         .@"if" => try self.ifBlock(target),
@@ -209,14 +209,14 @@ fn routine(self: *Self) Error!void {
     try self.consume(.routine, "Expected routine");
 
     const routine_name = self.previous.str;
-    var commands = std.ArrayList(AST).init(allocator);
+    var commands = std.ArrayList(Ast).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
         try self.command(&commands);
     }
 
     try self.routines.append(
-        AST.Program.Routine{
+        Ast.Program.Routine{
             .name = routine_name,
             .ast = commands.items,
         },

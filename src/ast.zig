@@ -2,21 +2,21 @@ const std = @import("std");
 
 const Vm = @import("./Vm.zig");
 
-pub const AST = union(enum) {
+pub const Ast = union(enum) {
     n: i32,
     b: bool,
     s: []const u8,
     id: []const u8,
     @"if": If,
-    @"while": []const AST,
+    @"while": []const Ast,
     add,
     sub,
     div,
     mul,
 
     pub const If = struct {
-        if_true: []const AST,
-        if_false: []const AST,
+        if_true: []const Ast,
+        if_false: []const Ast,
     };
 
     pub const Program = struct {
@@ -25,7 +25,7 @@ pub const AST = union(enum) {
 
         pub const Routine = struct {
             name: []const u8,
-            ast: []const AST,
+            ast: []const Ast,
 
             pub fn print(self: Routine, writer: anytype) !void {
                 try std.fmt.format(writer, "(routine '{s}' (", .{self.name});
@@ -64,7 +64,7 @@ pub const AST = union(enum) {
         }
     };
 
-    pub fn print(self: AST, writer: anytype) !void {
+    pub fn print(self: Ast, writer: anytype) !void {
         try switch (self) {
             .n => |n| std.fmt.format(writer, "(n {})", .{n}),
             .b => |b| std.fmt.format(writer, "(b {})", .{b}),
@@ -106,7 +106,7 @@ pub const AST = union(enum) {
 
     fn compile(
         instructions: *std.ArrayList(Vm.Instruction),
-        routine: []const AST,
+        routine: []const Ast,
     ) !void {
         for (routine) |c| {
             switch (c) {
