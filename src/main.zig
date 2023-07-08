@@ -1,7 +1,7 @@
 const std = @import("std");
 const print = std.debug.print;
 
-const VM = @import("./VM.zig");
+const Vm = @import("./Vm.zig");
 const AST = @import("./ast.zig").AST;
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
@@ -85,7 +85,7 @@ pub fn main() !void {
         print("=== VM INIT ===\n", .{});
     }
 
-    var vm = try VM.init(allocator);
+    var vm = try Vm.init(allocator);
     defer vm.deinit();
 
     if (debug) {
