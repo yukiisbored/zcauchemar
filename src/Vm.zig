@@ -158,7 +158,7 @@ pub fn run(self: *Self) !void {
         }
 
         var frame = try self.frame.peek();
-        var ip = frame.ip;
+        const ip = frame.ip;
 
         frame.ip += 1;
 
@@ -168,7 +168,7 @@ pub fn run(self: *Self) !void {
                 try self.frame.drop();
             },
             .user => |r| {
-                var i = r[ip];
+                const i = r[ip];
                 switch (i) {
                     .psh => |p| try self.stack.push(p),
                     .cal => |s| {

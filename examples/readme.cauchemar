@@ -1,22 +1,31 @@
 PROGRAM:
-  "Hello, world!" PRINT       ; Display "Hello, world!"
-  16 32 + 4 2 * /             ; Calculate (16 + 32) / (4 * 2)
-  DUP PRINT                   ; Print the result
-  DUP 6 EQUALS ASSERT         ; Validate the result
-  PLUS-FORTY-TWO              ; Call routine "PLUS-FORTY-TWO"
+  "Hello, world!" PRINT                ; Display "Hello, world!"
+  16 32 + 4 2 * /                      ; Calculate (16 + 32) / (4 * 2)
+  DUP PRINT                            ; Print the result
+  DUP 6 EQUALS ASSERT                  ; Validate the result
+  PLUS-FORTY-TWO                       ; Call routine "PLUS-FORTY-TWO"
   
-  DUP 50 GREATER-THAN         ; Check if the result is greater than 50
+  DUP 50 GREATER-THAN                  ; Check if the result is greater than 50
   IF   "This is wrong" PRINT
   ELSE "This is right" PRINT
   THEN
+ 
+  DUP                                  ; We'll use this thrice
+
+  COUNTING-DOWN-NAIVE
+  COUNTING-DOWN
+  48 COUNTING-UP
   
-  DO 1 -                      ; Count down to 0
-     DUP PRINT 
+PLUS-FORTY-TWO:
+  42 +                                 ; Add 42 to the top of the stack
+
+COUNTING-DOWN-NAIVE:
+  DO DUP PRINT
+     1 -
      DUP 0 GREATER-THAN 
   WHILE
-  
-  DROP                        ; Reject the top of the stack
+  DROP
 
-
-PLUS-FORTY-TWO:
-  42 +                        ; Add 42 to the top of the stack
+COUNTING-DOWN: 0 SWAP TO COUNTING
+COUNTING-UP: 0 TO COUNTING
+COUNTING: DO PRINT IS-EMPTY NOT WHILE
