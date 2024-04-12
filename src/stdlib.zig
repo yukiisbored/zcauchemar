@@ -25,6 +25,11 @@ pub const routines = [_]Vm.NativeRoutine{
     .{ .name = "GREATER-EQUAL", .func = nativeGreaterEqual },
     .{ .name = "LESS-THAN", .func = nativeLessThan },
     .{ .name = "LESS-EQUAL", .func = nativeLessEqual },
+
+    // Type checks
+    .{ .name = "IS-BOOLEAN", .func = nativeIsBoolean },
+    .{ .name = "IS-NUMBER", .func = nativeIsNumber },
+    .{ .name = "IS-STRING", .func = nativeIsString },
 };
 
 inline fn popB(vm: *Vm) !bool {
@@ -195,4 +200,33 @@ fn nativeLessThan(vm: *Vm) !void {
 
 fn nativeLessEqual(vm: *Vm) !void {
     return nativeNumberComparisonOp(vm, .le);
+}
+
+// == TYPE CHECKS ==
+
+fn nativeIsBoolean(vm: *Vm) !void {
+    const v = try vm.stack.peek();
+    const res = switch (v.*) {
+        .b => true,
+        else => false,
+    };
+    try pushB(vm, res);
+}
+
+fn nativeIsNumber(vm: *Vm) !void {
+    const v = try vm.stack.peek();
+    const res = switch (v.*) {
+        .n => true,
+        else => false,
+    };
+    try pushB(vm, res);
+}
+
+fn nativeIsString(vm: *Vm) !void {
+    const v = try vm.stack.peek();
+    const res = switch (v.*) {
+        .s => true,
+        else => false,
+    };
+    try pushB(vm, res);
 }
