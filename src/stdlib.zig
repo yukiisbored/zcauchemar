@@ -113,8 +113,6 @@ inline fn nativeBooleanBinaryOp(vm: *Vm, comptime op: BooleanBinaryOp) !void {
     t.b = res;
 }
 
-// FIXME: Use function definition expressions once it's implemented.
-//        https://github.com/ziglang/zig/issues/1717
 fn nativeOr(vm: *Vm) !void {
     return nativeBooleanBinaryOp(vm, .@"or");
 }
@@ -150,8 +148,6 @@ inline fn nativeNumberComparisonOp(vm: *Vm, comptime op: NumberComparisonOp) !vo
     try vm.stack.push(Vm.Value{ .b = res });
 }
 
-// FIXME: Use function definition expressions once it's implemented.
-//        https://github.com/ziglang/zig/issues/1717
 fn nativeGreaterThan(vm: *Vm) !void {
     return nativeNumberComparisonOp(vm, .gt);
 }
