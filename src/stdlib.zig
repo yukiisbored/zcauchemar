@@ -27,6 +27,54 @@ pub const routines = [_]Vm.NativeRoutine{
     .{ .name = "LESS-EQUAL", .func = nativeLessEqual },
 };
 
+inline fn popB(vm: *Vm) !bool {
+    return switch (try vm.stack.pop()) {
+         .b => |b| b,
+         else => error.InvalidType,
+    };
+}
+
+inline fn peekB(vm: *Vm) !bool {
+    const v = try vm.stack.peek();
+    return switch (v.*) {
+        .b => |b| b,
+        else => error.InvalidType,
+    };
+}
+
+inline fn pushB(vm: *Vm, b: bool) !void {
+    try vm.stack.push(.{ .b = b });
+}
+
+inline fn replaceB(vm: *Vm, b: bool) !void {
+    const v = try vm.stack.peek();
+    v.* = .{ .b = b };
+}
+
+inline fn popN(vm: *Vm) !i32 {
+    return switch (try vm.stack.pop()) {
+        .n => |n| n,
+        else => error.InvalidType,
+    };
+}
+
+inline fn peekN(vm: *Vm) !i32 {
+    const v = try vm.stack.peek();
+    return switch (v.*) {
+        .n => |n| n,
+        else => error.InvalidType,
+    };
+}
+
+inline fn pushN(vm: *Vm, n: i32) !void {
+    try vm.stack.push(.{ .n = n });
+}
+
+inline fn replaceN(vm: *Vm, n: i32) !void {
+    const v = try vm.stack.peek();
+    v.* = .{ .n = n };
+}
+
 // == GENERAL PURPOSE == //
 
 fn nativePrint(vm: *Vm) !void {
@@ -36,16 +84,16 @@ fn nativePrint(vm: *Vm) !void {
 }
 
 fn nativeAssert(vm: *Vm) !void {
-    switch (try vm.stack.pop()) {
-        .b => |b| if (!b) return error.AssertFailed,
-        else => return error.InvalidType,
-    }
+    const a = try popB(vm);
+    if (!a)
+        return error.AssertFailed;
 }
 
 fn nativeEquals(vm: *Vm) !void {
     const a = try vm.stack.pop();
     const b = try vm.stack.pop();
-    try vm.stack.push(.{ .b = try a.equals(b) });
+    const res = try a.equals(b);
+    try pushB(vm, res);
 }
 
 // == STACK MANIPULATION == //
@@ -85,10 +133,8 @@ fn nativeOver(vm: *Vm) !void {
 // == BOOLEAN OPERATIONS == //
 
 fn nativeNot(vm: *Vm) !void {
-    try vm.stack.push(switch (try vm.stack.pop()) {
-        .b => |b| .{ .b = !b },
-        else => return error.InvalidType,
-    });
+    const b = try popB(vm);
+    try pushB(vm, !b);
 }
 
 const BooleanBinaryOp = enum {
@@ -97,20 +143,13 @@ const BooleanBinaryOp = enum {
 };
 
 inline fn nativeBooleanBinaryOp(vm: *Vm, comptime op: BooleanBinaryOp) !void {
-    const a = switch (try vm.stack.pop()) {
-        .b => |b| b,
-        else => return error.InvalidType,
-    };
-    const t = try vm.stack.peek();
-    const b = switch (t.*) {
-        .b => |b| b,
-        else => return error.InvalidType,
-    };
+    const a = try popB(vm);
+    const b = try peekB(vm);
     const res = switch (op) {
         .@"or" => a or b,
         .@"and" => a and b,
     };
-    t.b = res;
+    try replaceB(vm, res);
 }
 
 fn nativeOr(vm: *Vm) !void {
@@ -131,21 +170,15 @@ const NumberComparisonOp = enum {
 };
 
 inline fn nativeNumberComparisonOp(vm: *Vm, comptime op: NumberComparisonOp) !void {
-    const b = switch (try vm.stack.pop()) {
-        .n => |n| n,
-        else => return error.InvalidType,
-    };
-    const a = switch (try vm.stack.pop()) {
-        .n => |n| n,
-        else => return error.InvalidType,
-    };
+    const b = try popN(vm);
+    const a = try peekN(vm);
     const res = switch (op) {
         .gt => a > b,
         .ge => a >= b,
         .lt => a < b,
         .le => a <= b,
     };
-    try vm.stack.push(Vm.Value{ .b = res });
+    try replaceB(vm, res);
 }
 
 fn nativeGreaterThan(vm: *Vm) !void {

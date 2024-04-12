@@ -22,7 +22,7 @@ pub fn main() !void {
 
     if (args.len != 2) {
         try std.fmt.format(stderr.writer(), "Usage: {s} CAUCHEMAR-FILE\n", .{args[0]});
-        return std.os.exit(1);
+        return std.process.exit(1);
     }
 
     const path = args[1];
