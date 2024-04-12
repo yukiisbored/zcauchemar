@@ -114,10 +114,10 @@ fn whileBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!self.check(.@"while")) {
-        try self.command(&commands);
+        try self.command(&commands, "Expected command or WHILE");
     }
 
-    try self.consume(.@"while", "Expected WHILE");
+    try self.advance();
 
     try target.append(Ast{ .@"while" = commands.items });
 }
@@ -129,18 +129,18 @@ fn ifBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
 
     var if_true = std.ArrayList(Ast).init(allocator);
     while (!(self.check(.then) or self.check(.@"else"))) {
-        try self.command(&if_true);
+        try self.command(&if_true, "Expected command, THEN, or ELSE");
     }
 
     var if_false = std.ArrayList(Ast).init(allocator);
 
     if (try self.match(.@"else")) {
         while (!(self.check(.then))) {
-            try self.command(&if_false);
+            try self.command(&if_false, "Expected command or THEN");
         }
     }
 
-    try self.consume(.then, "Expected THEN");
+    try self.advance();
 
     try target.append(
         Ast{
@@ -191,7 +191,7 @@ fn identifier(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try target.append(Ast{ .id = self.previous.str });
 }
 
-fn command(self: *Self, target: *std.ArrayList(Ast)) Error!void {
+fn command(self: *Self, target: *std.ArrayList(Ast), message: []const u8) Error!void {
     switch (self.current.type) {
         .do => try self.whileBlock(target),
         .@"if" => try self.ifBlock(target),
@@ -200,7 +200,7 @@ fn command(self: *Self, target: *std.ArrayList(Ast)) Error!void {
         .true, .false => try self.boolean(target),
         .string => try self.string(target),
         .identifier => try self.identifier(target),
-        inline else => try self.errorAtCurrent("Unexpected syntax"),
+        inline else => try self.errorAtCurrent(message),
     }
 }
 
@@ -213,7 +213,10 @@ fn routine(self: *Self) Error!void {
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
-        try self.command(&commands);
+        try self.command(
+            &commands, 
+            "Expected command, routine, or eof"
+        );
     }
 
     try self.routines.append(
