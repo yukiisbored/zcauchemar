@@ -7,6 +7,7 @@ pub const routines = [_]Vm.NativeRoutine{
     .{ .name = "PRINT", .func = nativePrint },
     .{ .name = "ASSERT", .func = nativeAssert },
     .{ .name = "EQUALS", .func = nativeEquals },
+    .{ .name = "TO", .func = nativeTo },
 
     // Stack manipulation
     .{ .name = "DROP", .func = nativeDrop },
@@ -101,6 +102,23 @@ fn nativeEquals(vm: *Vm) !void {
     const b = try vm.stack.pop();
     const res = try a.equals(b);
     try pushB(vm, res);
+}
+
+fn nativeTo(vm: *Vm) !void {
+    const b = try popN(vm);
+    const a = try popN(vm);
+
+    var i: i32 = a;
+
+    if (b > a) {
+        while (i <= b) : (i += 1) {
+            try pushN(vm, i);
+        }
+    } else {
+        while (i >= b) : (i -= 1) {
+            try pushN(vm, i);
+        }
+    }
 }
 
 // == STACK MANIPULATION == //
