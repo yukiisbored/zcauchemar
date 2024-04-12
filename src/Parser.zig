@@ -29,6 +29,7 @@ pub fn init(
         .type = .eof,
         .str = "",
         .line = 0,
+        .column = 0,
     };
 
     return Self{

@@ -6,6 +6,7 @@ source: []const u8,
 start: usize,
 current: usize,
 line: usize,
+column: usize,
 
 pub const TokenType = enum {
     // Single character tokens
@@ -40,6 +41,7 @@ pub const Token = struct {
     type: TokenType,
     str: []const u8,
     line: usize,
+    column: usize,
 };
 
 pub fn init(source: []const u8) Self {
@@ -48,6 +50,7 @@ pub fn init(source: []const u8) Self {
         .start = 0,
         .current = 0,
         .line = 0,
+        .column = 0,
     };
 }
 
@@ -67,6 +70,7 @@ inline fn isAtEnd(self: *Self) bool {
 
 inline fn forward(self: *Self) void {
     self.current += 1;
+    self.column += 1;
 }
 
 inline fn advance(self: *Self) u8 {
@@ -101,6 +105,7 @@ inline fn makeToken(self: *Self, @"type": TokenType) Token {
         .type = @"type",
         .str = self.source[self.start..self.current],
         .line = self.line,
+        .column = self.column,
     };
 }
 
@@ -109,6 +114,7 @@ inline fn errorToken(self: *Self, message: []const u8) Token {
         .type = .@"error",
         .str = message,
         .line = self.line,
+        .column = self.column,
     };
 }
 
@@ -138,6 +144,7 @@ fn skipWhitespace(self: *Self) void {
             '\n' => {
                 self.line += 1;
                 self.forward();
+                self.column = 0;
             },
             ';' => {
                 while (self.peek() != '\n' and !self.isAtEnd()) {
