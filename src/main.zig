@@ -54,6 +54,10 @@ pub fn main() !void {
 
             print("Error on line {}, column {}", .{token.line + 1, token.column + 1});
 
+            if (parser.routine_name.len != 0) {
+                print(" in routine '{s}'", .{parser.routine_name});
+            }
+
             if (token.type == .eof) {
                 print(" at end", .{});
             } else if (token.type == .@"error") {

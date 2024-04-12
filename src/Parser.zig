@@ -13,6 +13,8 @@ routines: *std.ArrayList(Ast.Program.Routine),
 current: Scanner.Token,
 previous: Scanner.Token,
 
+routine_name: []const u8,
+
 error_token: ?*const Scanner.Token,
 error_message: ?[]const u8,
 
@@ -40,6 +42,8 @@ pub fn init(
 
         .previous = initToken,
         .current = initToken,
+
+        .routine_name = "",
 
         .error_token = null,
         .error_message = null,
@@ -210,6 +214,8 @@ fn routine(self: *Self) Error!void {
     try self.consume(.routine, "Expected routine");
 
     const routine_name = self.previous.str;
+    self.routine_name = routine_name;
+
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
@@ -234,5 +240,5 @@ pub fn parse(self: *Self) Error!void {
         try self.routine();
     }
 
-    try self.consume(.eof, "Expected EOF");
+    try self.consume(.eof, "Expected eof");
 }
