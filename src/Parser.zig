@@ -13,6 +13,8 @@ routines: *std.ArrayList(Ast.Program.Routine),
 current: Scanner.Token,
 previous: Scanner.Token,
 
+routine_name: []const u8,
+
 error_token: ?*const Scanner.Token,
 error_message: ?[]const u8,
 
@@ -29,6 +31,7 @@ pub fn init(
         .type = .eof,
         .str = "",
         .line = 0,
+        .column = 0,
     };
 
     return Self{
@@ -39,6 +42,8 @@ pub fn init(
 
         .previous = initToken,
         .current = initToken,
+
+        .routine_name = "",
 
         .error_token = null,
         .error_message = null,
@@ -113,10 +118,10 @@ fn whileBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!self.check(.@"while")) {
-        try self.command(&commands);
+        try self.command(&commands, "Expected command or WHILE");
     }
 
-    try self.consume(.@"while", "Expected WHILE");
+    try self.advance();
 
     try target.append(Ast{ .@"while" = commands.items });
 }
@@ -128,18 +133,18 @@ fn ifBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
 
     var if_true = std.ArrayList(Ast).init(allocator);
     while (!(self.check(.then) or self.check(.@"else"))) {
-        try self.command(&if_true);
+        try self.command(&if_true, "Expected command, THEN, or ELSE");
     }
 
     var if_false = std.ArrayList(Ast).init(allocator);
 
     if (try self.match(.@"else")) {
         while (!(self.check(.then))) {
-            try self.command(&if_false);
+            try self.command(&if_false, "Expected command or THEN");
         }
     }
 
-    try self.consume(.then, "Expected THEN");
+    try self.advance();
 
     try target.append(
         Ast{
@@ -190,7 +195,7 @@ fn identifier(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try target.append(Ast{ .id = self.previous.str });
 }
 
-fn command(self: *Self, target: *std.ArrayList(Ast)) Error!void {
+fn command(self: *Self, target: *std.ArrayList(Ast), message: []const u8) Error!void {
     switch (self.current.type) {
         .do => try self.whileBlock(target),
         .@"if" => try self.ifBlock(target),
@@ -199,7 +204,7 @@ fn command(self: *Self, target: *std.ArrayList(Ast)) Error!void {
         .true, .false => try self.boolean(target),
         .string => try self.string(target),
         .identifier => try self.identifier(target),
-        inline else => try self.errorAtCurrent("Unexpected syntax"),
+        inline else => try self.errorAtCurrent(message),
     }
 }
 
@@ -209,10 +214,15 @@ fn routine(self: *Self) Error!void {
     try self.consume(.routine, "Expected routine");
 
     const routine_name = self.previous.str;
+    self.routine_name = routine_name;
+
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
-        try self.command(&commands);
+        try self.command(
+            &commands, 
+            "Expected command, routine, or eof"
+        );
     }
 
     try self.routines.append(
@@ -230,5 +240,5 @@ pub fn parse(self: *Self) Error!void {
         try self.routine();
     }
 
-    try self.consume(.eof, "Expected EOF");
+    try self.consume(.eof, "Expected eof");
 }

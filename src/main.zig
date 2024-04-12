@@ -52,7 +52,11 @@ pub fn main() !void {
             const token = parser.error_token orelse unreachable;
             const message = parser.error_message orelse unreachable;
 
-            print("Error on line {}", .{token.line});
+            print("Error on line {}, column {}", .{token.line + 1, token.column + 1});
+
+            if (parser.routine_name.len != 0) {
+                print(" in routine '{s}'", .{parser.routine_name});
+            }
 
             if (token.type == .eof) {
                 print(" at end", .{});
