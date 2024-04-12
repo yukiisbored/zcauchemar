@@ -14,6 +14,8 @@ pub const routines = [_]Vm.NativeRoutine{
     .{ .name = "SWAP", .func = nativeSwap },
     .{ .name = "ROT", .func = nativeRot },
     .{ .name = "OVER", .func = nativeOver },
+    .{ .name = "COUNT", .func = nativeCount },
+    .{ .name = "IS-EMPTY", .func = nativeIsEmpty },
 
     // Boolean operations
     .{ .name = "OR", .func = nativeOr },
@@ -133,6 +135,14 @@ fn nativeOver(vm: *Vm) !void {
     try vm.stack.push(b);
     try vm.stack.push(a);
     try vm.stack.push(b);
+}
+
+fn nativeCount(vm: *Vm) !void {
+    try pushN(vm, @intCast(vm.stack.count));
+}
+
+fn nativeIsEmpty(vm: *Vm) !void {
+    try pushB(vm, vm.stack.count == 0);
 }
 
 // == BOOLEAN OPERATIONS == //
