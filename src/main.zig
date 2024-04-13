@@ -2,7 +2,8 @@ const std = @import("std");
 const print = std.debug.print;
 
 const Vm = @import("./Vm.zig");
-const compiler = @import("./compiler.zig");
+const Ast = @import("./Ast.zig");
+const Compiler = @import("./Compiler.zig");
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
@@ -35,7 +36,7 @@ pub fn main() !void {
         print("=== SOURCE ===\n{s}\n", .{source});
     }
 
-    var routines = std.ArrayList(compiler.Program.Routine).init(allocator);
+    var routines = std.ArrayList(Ast.Routine).init(allocator);
     defer routines.deinit();
 
     var scanner = Scanner.init(source);
@@ -92,8 +93,10 @@ pub fn main() !void {
         print("=== TO BYTECODE ===\n", .{});
     }
 
-    var program = try compiler.Program.init(allocator, &vm, routines.items);
-    defer program.deinit();
+    var compiler = try Compiler.init(allocator);
+    defer compiler.deinit();
+
+    try compiler.compile(&vm, routines.items);
 
     // We don't need the Ast anymore.
     parser.deinit();
