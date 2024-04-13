@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 
 const Stack = @import("./stack.zig").Stack;
 const Scanner = @import("./Scanner.zig");
-const utils = @import("./utils.zig");
+const printSourceDiagnosis = @import("./utils.zig").printSourceDiagnosis;
 const Self = @This();
 
 name: []const u8,
@@ -224,7 +224,6 @@ pub fn run(self: *Self) !void {
 }
 
 pub fn printStacktrace(self: *Self, comptime err: bool) void {
-    const stderr = std.io.getStdErr().writer();
     const print = std.debug.print;
     if (!err) print("===\n", .{});
     for (self.frame.items[0..self.frame.count]) |v| {
@@ -232,23 +231,15 @@ pub fn printStacktrace(self: *Self, comptime err: bool) void {
             .user => |r| {
                 const ip = if (err) v.ip - 1 else v.ip;
                 const token = r.tokens[ip];
-                print(
-                    "{s}:{}:{}: in {s}\n",
-                    .{
-                        self.name,
-                        token.line + 1,
-                        token.column - token.str.len + 1,
-                        r.tokens[r.tokens.len - 1].str,
-                    },
+
+                printSourceDiagnosis(
+                    self.name,
+                    token.line,
+                    token.column,
+                    token.str.len,
+                    r.tokens[r.tokens.len - 1].str,
+                    self.source,
                 );
-                utils.printLine(stderr, self.source, token.line) catch {};
-                for (0..token.column - token.str.len) |_| {
-                    print(" ", .{});
-                }
-                for (0..token.str.len) |_| {
-                    print("^", .{});
-                }
-                print("\n", .{});
             },
             .native => {
                 if (!err) {

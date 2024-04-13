@@ -6,7 +6,7 @@ const compiler = @import("./compiler.zig");
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
-const utils = @import("./utils.zig");
+const printSourceDiagnosis = @import("./utils.zig").printSourceDiagnosis;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -54,21 +54,15 @@ pub fn main() !void {
             const message = parser.error_message orelse unreachable;
 
             print("Syntax Error: {s}\n", .{message});
-
-            print(
-                "{s}:{}:{}: in {s}\n",
-                .{
-                    path,
-                    token.line + 1,
-                    token.column + 1,
-                    parser.routine_name,
-                },
+            printSourceDiagnosis(
+                path,
+                token.line,
+                token.column,
+                token.str.len,
+                parser.routine_name,
+                source
             );
-            utils.printLine(stderr.writer(), source, token.line) catch {};
-            for (0..token.column-1) |_| {
-                print(" ", .{});
-            }
-            print("^\n", .{});
+
             fail = true;
         },
         else => |e| return e,
