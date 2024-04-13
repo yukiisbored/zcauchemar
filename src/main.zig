@@ -6,6 +6,7 @@ const compiler = @import("./compiler.zig");
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
+const utils = @import("./utils.zig");
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -52,21 +53,22 @@ pub fn main() !void {
             const token = parser.error_token orelse unreachable;
             const message = parser.error_message orelse unreachable;
 
-            print("Error on line {}, column {}", .{token.line + 1, token.column});
+            print("Syntax Error: {s}\n", .{message});
 
-            if (parser.routine_name.len != 0) {
-                print(" in routine '{s}'", .{parser.routine_name});
+            print(
+                "{s}:{}:{}: in {s}\n",
+                .{
+                    path,
+                    token.line + 1,
+                    token.column + 1,
+                    parser.routine_name,
+                },
+            );
+            utils.printLine(stderr.writer(), source, token.line) catch {};
+            for (0..token.column-1) |_| {
+                print(" ", .{});
             }
-
-            if (token.type == .eof) {
-                print(" at end", .{});
-            } else if (token.type == .@"error") {
-                // Do nothing.
-            } else {
-                print(" at '{s}'", .{token.str});
-            }
-
-            print(": {s}\n", .{message});
+            print("^\n", .{});
             fail = true;
         },
         else => |e| return e,
