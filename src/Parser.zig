@@ -1,14 +1,17 @@
 const std = @import("std");
 
 const Scanner = @import("./Scanner.zig");
-const Ast = @import("./ast.zig").Ast;
+const compiler = @import("./compiler.zig");
+const Ast = compiler.Ast;
+const Program = compiler.Program;
+
 
 const Self = @This();
 
 arena: std.heap.ArenaAllocator,
 
 scanner: *Scanner,
-routines: *std.ArrayList(Ast.Program.Routine),
+routines: *std.ArrayList(Program.Routine),
 
 current: Scanner.Token,
 previous: Scanner.Token,
@@ -25,7 +28,7 @@ pub const Error = error{
 pub fn init(
     allocator: std.mem.Allocator,
     scanner: *Scanner,
-    routines: *std.ArrayList(Ast.Program.Routine),
+    routines: *std.ArrayList(Program.Routine),
 ) Self {
     const initToken = Scanner.Token{
         .type = .eof,
@@ -114,6 +117,7 @@ fn whileBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     const allocator = self.arena.allocator();
 
     try self.advance();
+    const t = self.previous;
 
     var commands = std.ArrayList(Ast).init(allocator);
 
@@ -123,13 +127,14 @@ fn whileBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
 
     try self.advance();
 
-    try target.append(Ast{ .@"while" = commands.items });
+    try target.append(Ast{ .i = .{ .@"while" = commands.items }, .t = t });
 }
 
 fn ifBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     const allocator = self.arena.allocator();
 
     try self.advance();
+    const t = self.previous;
 
     var if_true = std.ArrayList(Ast).init(allocator);
     while (!(self.check(.then) or self.check(.@"else"))) {
@@ -148,51 +153,65 @@ fn ifBlock(self: *Self, target: *std.ArrayList(Ast)) Error!void {
 
     try target.append(
         Ast{
-            .@"if" = Ast.If{
-                .if_true = if_true.items,
-                .if_false = if_false.items,
+            .i = .{
+                .@"if" = Ast.Inner.If{
+                    .if_true = if_true.items,
+                    .if_false = if_false.items,
+                },
             },
+            .t = t,
         },
     );
 }
 
 fn number(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(Ast{ .n = std.fmt.parseInt(i32, self.previous.str, 10) catch unreachable });
+    try target.append(Ast{
+        .i = .{ .n = std.fmt.parseInt(i32, self.previous.str, 10) catch unreachable },
+        .t = self.previous,
+    });
 }
 
 fn arithmetic(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(
-        switch (self.previous.type) {
+    try target.append(Ast{
+        .i = switch (self.previous.type) {
             .plus => .add,
             .minus => .sub,
             .slash => .div,
             .star => .mul,
             else => unreachable,
         },
-    );
+        .t = self.previous,
+    });
 }
 
 fn boolean(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(
-        switch (self.previous.type) {
-            .true => Ast{ .b = true },
-            .false => Ast{ .b = false },
+    try target.append(Ast{
+        .i = switch (self.previous.type) {
+            .true => .{ .b = true },
+            .false => .{ .b = false },
             else => unreachable,
         },
-    );
+        .t = self.previous,
+    });
 }
 
 fn string(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(Ast{ .s = self.previous.str[1 .. self.previous.str.len - 1] });
+    try target.append(Ast{
+        .i = .{ .s = self.previous.str[1 .. self.previous.str.len - 1] },
+        .t = self.previous,
+    });
 }
 
 fn identifier(self: *Self, target: *std.ArrayList(Ast)) Error!void {
     try self.advance();
-    try target.append(Ast{ .id = self.previous.str });
+    try target.append(Ast{
+        .i = .{ .id = self.previous.str },
+        .t = self.previous,
+    });
 }
 
 fn command(self: *Self, target: *std.ArrayList(Ast), message: []const u8) Error!void {
@@ -219,14 +238,11 @@ fn routine(self: *Self) Error!void {
     var commands = std.ArrayList(Ast).init(allocator);
 
     while (!(self.check(.routine) or self.check(.eof))) {
-        try self.command(
-            &commands, 
-            "Expected command, routine, or eof"
-        );
+        try self.command(&commands, "Expected command, routine, or eof");
     }
 
     try self.routines.append(
-        Ast.Program.Routine{
+        Program.Routine{
             .name = routine_name,
             .ast = commands.items,
         },

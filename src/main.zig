@@ -2,7 +2,7 @@ const std = @import("std");
 const print = std.debug.print;
 
 const Vm = @import("./Vm.zig");
-const Ast = @import("./ast.zig").Ast;
+const compiler = @import("./compiler.zig");
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
@@ -34,7 +34,7 @@ pub fn main() !void {
         print("=== SOURCE ===\n{s}\n", .{source});
     }
 
-    var routines = std.ArrayList(Ast.Program.Routine).init(allocator);
+    var routines = std.ArrayList(compiler.Program.Routine).init(allocator);
     defer routines.deinit();
 
     var scanner = Scanner.init(source);
@@ -52,7 +52,7 @@ pub fn main() !void {
             const token = parser.error_token orelse unreachable;
             const message = parser.error_message orelse unreachable;
 
-            print("Error on line {}, column {}", .{token.line + 1, token.column + 1});
+            print("Error on line {}, column {}", .{token.line + 1, token.column});
 
             if (parser.routine_name.len != 0) {
                 print(" in routine '{s}'", .{parser.routine_name});
@@ -96,7 +96,7 @@ pub fn main() !void {
         print("=== TO BYTECODE ===\n", .{});
     }
 
-    var program = try Ast.Program.init(allocator, &vm, routines.items);
+    var program = try compiler.Program.init(allocator, &vm, routines.items);
     defer program.deinit();
 
     // We don't need the Ast anymore.
