@@ -5,6 +5,7 @@ const Vm = @import("./Vm.zig");
 
 pub fn compile(
     instructions: *std.ArrayList(Vm.Instruction),
+    tokens: *std.ArrayList(Scanner.Token),
     routine: []const Ast,
 ) !void {
     for (routine) |c| {
@@ -15,17 +16,20 @@ pub fn compile(
             .id => |s| try instructions.append(Vm.Instruction{ .cal = s }),
             .@"if" => |s| {
                 try instructions.append(Vm.Instruction{ .jif = 0 });
+                try tokens.append(c.t);
                 const false_jump_index = instructions.items.len - 1;
 
-                try compile(instructions, s.if_true);
+                try compile(instructions, tokens, s.if_true);
 
                 try instructions.append(Vm.Instruction{ .jmp = 0 });
+                try tokens.append(c.t);
                 const end_jump_index = instructions.items.len - 1;
 
                 const false_jump = end_jump_index + 1;
-                try compile(instructions, s.if_false);
+                try compile(instructions, tokens, s.if_false);
 
                 try instructions.append(.nop);
+                try tokens.append(c.t);
                 const end_jump = instructions.items.len - 1;
 
                 instructions.items[false_jump_index] = Vm.Instruction{ .jif = false_jump };
@@ -33,10 +37,12 @@ pub fn compile(
             },
             .@"while" => |s| {
                 const start_index = instructions.items.len;
-                try compile(instructions, s);
+                try compile(instructions, tokens, s);
                 try instructions.append(Vm.Instruction{ .jif = 0 });
+                try tokens.append(c.t);
                 const false_jump_index = instructions.items.len - 1;
                 try instructions.append(Vm.Instruction{ .jmp = start_index });
+                try tokens.append(c.t);
                 const false_jump = instructions.items.len;
 
                 instructions.items[false_jump_index] = Vm.Instruction{ .jif = false_jump };
@@ -46,16 +52,21 @@ pub fn compile(
             .div => try instructions.append(.div),
             .mul => try instructions.append(.mul),
         }
+        switch (c.i) {
+            .n, .b, .s, .id, .add, .sub, .div, .mul => try tokens.append(c.t),
+            else => {}
+        }
     }
 }
 
 pub const Program = struct {
     allocator: std.mem.Allocator,
-    routines: std.ArrayList(std.ArrayList(Vm.Instruction)),
+    routines: std.ArrayList(CompiledRoutine),
 
     pub const Routine = struct {
         name: []const u8,
         ast: []const Ast,
+        token: Scanner.Token,
 
         pub fn print(self: Routine, writer: anytype) !void {
             try std.fmt.format(writer, "(routine '{s}' (", .{self.name});
@@ -69,17 +80,35 @@ pub const Program = struct {
         }
     };
 
+    pub const CompiledRoutine = struct {
+        instructions: std.ArrayList(Vm.Instruction),
+        tokens: std.ArrayList(Scanner.Token),
+
+        pub fn init(allocator: std.mem.Allocator) !CompiledRoutine {
+            return CompiledRoutine{
+               .instructions = std.ArrayList(Vm.Instruction).init(allocator),
+               .tokens = std.ArrayList(Scanner.Token).init(allocator),
+            };
+        }
+
+        pub fn deinit(self: *const CompiledRoutine) void {
+            self.instructions.deinit();
+            self.tokens.deinit();
+        }
+    };
+
     pub fn init(allocator: std.mem.Allocator, vm: *Vm, routines: []const Routine) !Program {
         var res = Program{
             .allocator = allocator,
-            .routines = std.ArrayList(std.ArrayList(Vm.Instruction)).init(allocator),
+            .routines = std.ArrayList(CompiledRoutine).init(allocator),
         };
 
         for (routines) |r| {
-            var i = std.ArrayList(Vm.Instruction).init(allocator);
-            try compile(&i, r.ast);
-            try i.append(.ret);
-            try vm.addRoutine(r.name, i.items);
+            var i = try CompiledRoutine.init(allocator);
+            try compile(&i.instructions, &i.tokens, r.ast);
+            try i.instructions.append(.ret);
+            try i.tokens.append(r.token);
+            try vm.addRoutine(r.name, i.instructions.items, i.tokens.items);
             try res.routines.append(i);
         }
 

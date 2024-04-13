@@ -232,7 +232,8 @@ fn routine(self: *Self) Error!void {
 
     try self.consume(.routine, "Expected routine");
 
-    const routine_name = self.previous.str;
+    const t = self.previous;
+    const routine_name = t.str;
     self.routine_name = routine_name;
 
     var commands = std.ArrayList(Ast).init(allocator);
@@ -245,6 +246,7 @@ fn routine(self: *Self) Error!void {
         Program.Routine{
             .name = routine_name,
             .ast = commands.items,
+            .token = t,
         },
     );
 }

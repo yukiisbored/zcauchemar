@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Stack = @import("./stack.zig").Stack;
+const Scanner = @import("./Scanner.zig");
 
 const Self = @This();
 
@@ -90,8 +91,13 @@ pub const NativeRoutine = struct {
     func: *const fn (self: *Self) anyerror!void,
 };
 
+pub const UserRoutine = struct {
+    instructions: []const Instruction,
+    tokens: []const Scanner.Token,
+};
+
 const Routine = union(enum) {
-    user: []const Instruction,
+    user: UserRoutine,
     native: *const fn (self: *Self) anyerror!void,
 };
 
@@ -118,8 +124,16 @@ pub fn deinit(self: *Self) void {
     self.routines.deinit();
 }
 
-pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instruction) !void {
-    try self.routines.put(name, Routine{ .user = instructions });
+pub fn addRoutine(self: *Self, name: []const u8, instructions: []const Instruction, tokens: []const Scanner.Token) !void {
+    try self.routines.put(
+        name,
+        Routine{
+            .user = .{
+                .instructions = instructions,
+                .tokens = tokens,
+            },
+        },
+    );
 }
 
 const BinaryOp = enum {
@@ -168,7 +182,7 @@ pub fn run(self: *Self) !void {
                 try self.frame.drop();
             },
             .user => |r| {
-                const i = r[ip];
+                const i = r.instructions[ip];
                 switch (i) {
                     .psh => |p| try self.stack.push(p),
                     .cal => |s| {
@@ -230,7 +244,7 @@ pub fn printStacktrace(self: *Self, comptime err: bool) void {
                 } else {
                     print("-- [{d: >5}] ", .{ip});
                 }
-                r[ip].print(stderr) catch {};
+                r.instructions[ip].print(stderr) catch {};
                 print("\n", .{});
             },
             .native => |_| {
@@ -249,7 +263,7 @@ pub fn dumpBytecode(self: *Self) void {
         switch (kv.value_ptr.*) {
             .user => |r| {
                 print("--- {s} ---\n", .{kv.key_ptr.*});
-                for (0.., r) |i, in| {
+                for (0.., r.instructions) |i, in| {
                     print("[{d: >5}] ", .{i});
                     in.print(stderr) catch {};
                     print("\n", .{});
