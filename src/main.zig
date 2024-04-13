@@ -89,7 +89,7 @@ pub fn main() !void {
         print("=== VM INIT ===\n", .{});
     }
 
-    var vm = try Vm.init(allocator);
+    var vm = try Vm.init(allocator, path, source);
     defer vm.deinit();
 
     if (debug) {

@@ -3,8 +3,11 @@ const builtin = @import("builtin");
 
 const Stack = @import("./stack.zig").Stack;
 const Scanner = @import("./Scanner.zig");
-
+const utils = @import("./utils.zig");
 const Self = @This();
+
+name: []const u8,
+source: []const u8,
 
 frame: FrameStack,
 stack: ValueStack,
@@ -106,8 +109,10 @@ const Frame = struct {
     ip: usize,
 };
 
-pub fn init(allocator: std.mem.Allocator) !Self {
+pub fn init(allocator: std.mem.Allocator, name: []const u8, source: []const u8) !Self {
     var res = Self{
+        .name = name,
+        .source = source,
         .frame = FrameStack.init(),
         .stack = ValueStack.init(),
         .routines = std.StringHashMap(Routine).init(allocator),
@@ -221,34 +226,34 @@ pub fn run(self: *Self) !void {
 pub fn printStacktrace(self: *Self, comptime err: bool) void {
     const stderr = std.io.getStdErr().writer();
     const print = std.debug.print;
-    print(" STACK: ", .{});
-    for (self.stack.items[0..self.stack.count], 0..) |v, i| {
-        print("[", .{});
-        v.print(stderr) catch {};
-        print("]", .{});
-
-        if (i != self.stack.count - 1) {
-            print(" ", .{});
-        }
-    }
-    print("\nFRAMES: ", .{});
-    for (self.frame.items[0..self.frame.count], 0..) |v, i| {
-        if (i > 0) {
-            print("        ", .{});
-        }
+    if (!err) print("===\n", .{});
+    for (self.frame.items[0..self.frame.count]) |v| {
         switch (v.routine.*) {
             .user => |r| {
                 const ip = if (err) v.ip - 1 else v.ip;
-                if (i == self.frame.count - 1) {
-                    print("-> [{d: >5}] ", .{ip});
-                } else {
-                    print("-- [{d: >5}] ", .{ip});
+                const token = r.tokens[ip];
+                print(
+                    "{s}:{}:{}: in {s}\n",
+                    .{
+                        self.name,
+                        token.line + 1,
+                        token.column - token.str.len + 1,
+                        r.tokens[r.tokens.len - 1].str,
+                    },
+                );
+                utils.printLine(stderr, self.source, token.line) catch {};
+                for (0..token.column - token.str.len) |_| {
+                    print(" ", .{});
                 }
-                r.instructions[ip].print(stderr) catch {};
+                for (0..token.str.len) |_| {
+                    print("^", .{});
+                }
                 print("\n", .{});
             },
-            .native => |_| {
-                print("-> [{d: >5}] -*- NATIVE ROUTINE -*-\n", .{v.ip});
+            .native => {
+                if (!err) {
+                    print("???:?:?: in native routine\n", .{});
+                }
             },
         }
     }

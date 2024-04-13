@@ -55,8 +55,6 @@ zcauchemar is the successor to the [original implementation] in [Rust].
 - Runtime-allocated Strings
 - User input ("Requests")
 - General value containers for long-live variables ("Blocks")
-- Human-readable errors
-  - List source code on stacktrace instead of VM instructions
 - Extensive standard library
   - Math routines
   - String routines
