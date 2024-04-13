@@ -1,9 +1,7 @@
 const std = @import("std");
 
 const Scanner = @import("./Scanner.zig");
-const compiler = @import("./compiler.zig");
-const Ast = compiler.Ast;
-const Program = compiler.Program;
+const Ast = @import("./Ast.zig");
 
 
 const Self = @This();
@@ -11,7 +9,7 @@ const Self = @This();
 arena: std.heap.ArenaAllocator,
 
 scanner: *Scanner,
-routines: *std.ArrayList(Program.Routine),
+routines: *std.ArrayList(Ast.Routine),
 
 current: Scanner.Token,
 previous: Scanner.Token,
@@ -28,7 +26,7 @@ pub const Error = error{
 pub fn init(
     allocator: std.mem.Allocator,
     scanner: *Scanner,
-    routines: *std.ArrayList(Program.Routine),
+    routines: *std.ArrayList(Ast.Routine),
 ) Self {
     const initToken = Scanner.Token{
         .type = .eof,
@@ -243,7 +241,7 @@ fn routine(self: *Self) Error!void {
     }
 
     try self.routines.append(
-        Program.Routine{
+        Ast.Routine{
             .name = routine_name,
             .ast = commands.items,
             .token = t,

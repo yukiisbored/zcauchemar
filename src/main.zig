@@ -2,11 +2,12 @@ const std = @import("std");
 const print = std.debug.print;
 
 const Vm = @import("./Vm.zig");
-const compiler = @import("./compiler.zig");
+const Ast = @import("./Ast.zig");
+const Compiler = @import("./Compiler.zig");
 const Scanner = @import("./Scanner.zig");
 const Parser = @import("./Parser.zig");
 const debug = @import("./constants.zig").debug;
-const utils = @import("./utils.zig");
+const printSourceDiagnosis = @import("./utils.zig").printSourceDiagnosis;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -35,7 +36,7 @@ pub fn main() !void {
         print("=== SOURCE ===\n{s}\n", .{source});
     }
 
-    var routines = std.ArrayList(compiler.Program.Routine).init(allocator);
+    var routines = std.ArrayList(Ast.Routine).init(allocator);
     defer routines.deinit();
 
     var scanner = Scanner.init(source);
@@ -54,21 +55,15 @@ pub fn main() !void {
             const message = parser.error_message orelse unreachable;
 
             print("Syntax Error: {s}\n", .{message});
-
-            print(
-                "{s}:{}:{}: in {s}\n",
-                .{
-                    path,
-                    token.line + 1,
-                    token.column + 1,
-                    parser.routine_name,
-                },
+            printSourceDiagnosis(
+                path,
+                token.line,
+                token.column,
+                token.str.len,
+                parser.routine_name,
+                source
             );
-            utils.printLine(stderr.writer(), source, token.line) catch {};
-            for (0..token.column-1) |_| {
-                print(" ", .{});
-            }
-            print("^\n", .{});
+
             fail = true;
         },
         else => |e| return e,
@@ -98,8 +93,10 @@ pub fn main() !void {
         print("=== TO BYTECODE ===\n", .{});
     }
 
-    var program = try compiler.Program.init(allocator, &vm, routines.items);
-    defer program.deinit();
+    var compiler = try Compiler.init(allocator);
+    defer compiler.deinit();
+
+    try compiler.compile(&vm, routines.items);
 
     // We don't need the Ast anymore.
     parser.deinit();
